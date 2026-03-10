@@ -20,7 +20,7 @@ def temp_project_versioning(tmp_path):
     return dest
 
 def test_review_archiving(temp_project_versioning):
-    uuid = "FD75AC3C-F304-4EA6-ADCC-2C32D6589969"
+    uuid = "87D59B4E-F1D6-4025-9FBA-33F60ED8F985"
     
     # 1. Save Initial Review
     content_v1 = "# Review V1\nInitial feedback."
@@ -46,7 +46,7 @@ def test_review_archiving(temp_project_versioning):
     assert "Review V1" in prev
 
 def test_get_specific_archive(temp_project_versioning):
-    uuid = "FD75AC3C-F304-4EA6-ADCC-2C32D6589969"
+    uuid = "87D59B4E-F1D6-4025-9FBA-33F60ED8F985"
     content_v1 = "Version 1"
     save_review(uuid, content_v1)
     time.sleep(1.1)

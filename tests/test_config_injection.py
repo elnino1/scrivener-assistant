@@ -35,7 +35,7 @@ def test_custom_config_injection(tmp_path):
     # Verify managers use custom config
     assert ".custom-assistant" in str(project.prompt_manager.prompts_dir)
     assert "my-prompts" in str(project.prompt_manager.prompts_dir)
-    assert "my-summaries" in str(project.summary_manager.summaries_dir)
+    assert "my-summaries" in str(project.summary_manager.base_dir)
     
     # Test that the config actually works
     project.save_prompt("test_prompt", "Custom config test")

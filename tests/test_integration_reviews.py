@@ -21,7 +21,7 @@ def temp_project_reviews(tmp_path):
 
 def test_review_workflow(temp_project_reviews):
     # UUID for "Chapter"
-    uuid = "FD75AC3C-F304-4EA6-ADCC-2C32D6589969"
+    uuid = "87D59B4E-F1D6-4025-9FBA-33F60ED8F985"
     
     review_content = """# Style Review
 
@@ -44,9 +44,11 @@ def test_review_workflow(temp_project_reviews):
     assert "Saved style review" in res_save
     
     # Verify file exists on disk
-    safe_name = uuid
-    review_file = temp_project_reviews / ".ai-assistant" / "reviews" / f"{safe_name}.md"
-    assert review_file.exists()
+    # Since it's hierarchical storage, search for the short UUID in the reviews folder
+    short_uuid = uuid.split('-')[0]
+    review_files = list((temp_project_reviews / ".ai-assistant" / "reviews").rglob(f"*{short_uuid}*.md"))
+    assert len(review_files) > 0, "Review file should exist"
+    review_file = review_files[0]
     assert "Strengths" in review_file.read_text()
     assert "Weaknesses" in review_file.read_text()
     

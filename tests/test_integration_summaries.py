@@ -21,18 +21,17 @@ def temp_project_summaries(tmp_path):
 
 def test_summary_workflow(temp_project_summaries):
     # UUID for "Chapter"
-    uuid = "FD75AC3C-F304-4EA6-ADCC-2C32D6589969"
+    uuid = "87D59B4E-F1D6-4025-9FBA-33F60ED8F985"
     
     # 1. Save
     res_save = save_summary(uuid, "This is a summary of the chapter.")
     assert "Saved summary" in res_save
     
     # Verify file exists on disk
-    # Expect clean name from UUID (cleaning logic removes dashes? let's check manager logic)
-    # Manager logic: "".join(c for c in uuid if c.isalnum() or c in ('-',)) -> Keeps dashes
-    safe_name = uuid
-    summary_file = temp_project_summaries / ".ai-assistant" / "summaries" / f"{safe_name}.md"
-    assert summary_file.exists()
+    short_uuid = uuid.split('-')[0]
+    summary_files = list((temp_project_summaries / ".ai-assistant" / "summaries").rglob(f"*{short_uuid}*.md"))
+    assert len(summary_files) > 0, "Summary file should exist"
+    summary_file = summary_files[0]
     assert summary_file.read_text() == "This is a summary of the chapter."
     
     # 2. Get

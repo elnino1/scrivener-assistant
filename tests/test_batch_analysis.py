@@ -22,7 +22,7 @@ def temp_project_batch(tmp_path):
 def test_prepare_chapter_analysis(temp_project_batch):
     """Test that prepare_chapter_analysis returns content and workflow."""
     # UUID for "Chapter"
-    uuid = "FD75AC3C-F304-4EA6-ADCC-2C32D6589969"
+    uuid = "87D59B4E-F1D6-4025-9FBA-33F60ED8F985"
     
     result = prepare_chapter_analysis(uuid)
     
@@ -40,7 +40,7 @@ def test_prepare_chapter_analysis(temp_project_batch):
 
 def test_batch_workflow_execution(temp_project_batch):
     """Test executing full batch workflow: summary + metadata + review."""
-    uuid = "FD75AC3C-F304-4EA6-ADCC-2C32D6589969"
+    uuid = "87D59B4E-F1D6-4025-9FBA-33F60ED8F985"
     
     # Step 1: Prepare analysis (gets content once)
     result = prepare_chapter_analysis(uuid)
@@ -65,11 +65,12 @@ def test_batch_workflow_execution(temp_project_batch):
     assert "Saved style review" in review_res
     
     # Verify all outputs exist
-    summary_file = temp_project_batch / ".ai-assistant" / "summaries" / f"{uuid}.md"
-    review_file = temp_project_batch / ".ai-assistant" / "reviews" / f"{uuid}.md"
+    short_uuid = uuid.split('-')[0]
+    summary_files = list((temp_project_batch / ".ai-assistant" / "summaries").rglob(f"*{short_uuid}*.md"))
+    review_files = list((temp_project_batch / ".ai-assistant" / "reviews").rglob(f"*{short_uuid}*.md"))
     
-    assert summary_file.exists()
-    assert review_file.exists()
+    assert len(summary_files) > 0, "Summary file should exist"
+    assert len(review_files) > 0, "Review file should exist"
 
 def test_prepare_analysis_no_project():
     """Test error handling when no project loaded."""
