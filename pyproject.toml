@@ -1,0 +1,30 @@
+[project]
+name = "scrivener-assistant-mcp"
+version = "0.1.0"
+description = "A Model Context Protocol server for Scrivener projects"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.0.0",
+    "striprtf>=0.0.26"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[project.scripts]
+scrivener-cli = "scrivener_assistant.cli:main"
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/scrivener_assistant"]
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+testpaths = ["tests"]
