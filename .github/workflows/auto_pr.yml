@@ -1,0 +1,41 @@
+name: Auto Create PR
+
+on:
+  push:
+    branches-ignore:
+      - main
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if an open PR already exists for this branch
+          prs=$(gh pr list \
+            --head "${GITHUB_REF_NAME}" \
+            --base "main" \
+            --state "open" \
+            --json number \
+            --jq '. | length')
+          
+          if [ "$prs" -eq "0" ]; then
+            echo "Creating a new PR..."
+            gh pr create \
+              --base "main" \
+              --head "${GITHUB_REF_NAME}" \
+              --title "Auto PR: ${GITHUB_REF_NAME}" \
+              --body "This PR was automatically created by GitHub Actions upon pushing a new branch."
+          else
+            echo "A PR already exists for this branch."
+          fi
