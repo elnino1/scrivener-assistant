@@ -57,4 +57,10 @@ jobs:
       - name: Build package
         run: python -m build
 
-      # Note: Automatic publish to PyPI could be added here later if desired.
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_version.outputs.new_tag }}
+          name: Release ${{ steps.tag_version.outputs.new_tag }}
+          body: ${{ steps.tag_version.outputs.changelog }}
+          files: dist/*
