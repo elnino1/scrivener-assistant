@@ -1,0 +1,60 @@
+{
+  "manifest_version": "0.4",
+  "name": "scrivener-assistant",
+  "display_name": "Scrivener Assistant",
+  "version": "0.1.0",
+  "description": "AI assistant for Scrivener writing projects — read binder structure, documents, and manage summaries, reviews, characters, and locations.",
+  "long_description": "Connect Claude to your Scrivener projects. Read binder structure, document content (RTF auto-converted to plain text), and manage AI-generated summaries, style reviews, character profiles, and location notes — all stored safely inside your .scriv bundle.",
+  "author": {
+    "name": "scrivener-assistant-mcp contributors"
+  },
+  "license": "MIT",
+  "keywords": ["scrivener", "writing", "fiction", "novel", "manuscript", "mcp"],
+  "server": {
+    "type": "uv",
+    "entry_point": "src/server.py",
+    "mcp_config": {
+      "env": {
+        "SCRIVENER_PROJECT_PATH": "${user_config.project_path}"
+      }
+    }
+  },
+  "tools": [
+    {"name": "set_project_path", "description": "Load a .scriv project by path"},
+    {"name": "get_current_project", "description": "Get the currently loaded project path"},
+    {"name": "get_binder_structure", "description": "Get the full binder hierarchy as JSON"},
+    {"name": "read_document", "description": "Read document content by UUID"},
+    {"name": "update_metadata", "description": "Update custom metadata fields on a document"},
+    {"name": "prepare_chapter_analysis", "description": "Prepare a chapter for batch analysis (summary + metadata + review in one call)"},
+    {"name": "save_prompt", "description": "Save a reusable prompt to the project library"},
+    {"name": "get_prompt", "description": "Retrieve a saved prompt by name"},
+    {"name": "list_prompts", "description": "List all saved prompts"},
+    {"name": "save_summary", "description": "Save an AI-generated summary for a document"},
+    {"name": "get_summary", "description": "Retrieve a saved summary"},
+    {"name": "save_review", "description": "Save a style review for a document (versioned with history)"},
+    {"name": "get_review", "description": "Get the current style review for a document"},
+    {"name": "get_review_history", "description": "List archived review versions for a document"},
+    {"name": "get_previous_review", "description": "Get the most recent archived review"},
+    {"name": "get_archived_review", "description": "Retrieve a specific archived review by timestamp"},
+    {"name": "save_character", "description": "Save a character profile"},
+    {"name": "get_character", "description": "Retrieve a character profile by name"},
+    {"name": "list_characters", "description": "List all saved character profiles"},
+    {"name": "save_location", "description": "Save a location profile"},
+    {"name": "get_location", "description": "Retrieve a location profile by name"},
+    {"name": "list_locations", "description": "List all saved location profiles"}
+  ],
+  "user_config": {
+    "project_path": {
+      "type": "directory",
+      "title": "Scrivener Project Path",
+      "description": "Path to your .scriv project to load at startup. Leave empty to set it later using the set_project_path tool.",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32"],
+    "runtimes": {
+      "python": ">=3.10"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+# Development files
+tests/
+docs/
+.venv/
+.git/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+
+# CI/CD
+.github/
+.agent/
+.claude/
+.cursor/
+.gemini/
+
+# Misc
+*.log
+.DS_Store

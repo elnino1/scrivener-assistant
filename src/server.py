@@ -2,6 +2,7 @@
 Scrivener Assistant MCP Server
 Entry point for the Model Context Protocol server.
 """
+import os
 import sys
 import logging
 import argparse
@@ -417,7 +418,13 @@ Examples:
     )
     
     args = parser.parse_args()
-    
+
+    # Fall back to env var injected by the Desktop Extension manifest
+    if not args.project_path:
+        env_path = os.environ.get("SCRIVENER_PROJECT_PATH", "").strip()
+        if env_path:
+            args.project_path = env_path
+
     # Configure logging based on verbosity
     log_level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(
