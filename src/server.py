@@ -76,6 +76,26 @@ def read_document(uuid: str) -> str:
     return current_project.read_document(uuid)
 
 @mcp.tool()
+def read_document_notes(uuid: str) -> str:
+    """
+    Reads the inspector notes of a document by UUID.
+
+    In Scrivener, the Notes panel (Inspector) is used to store research,
+    reminders, or annotations alongside a document without appearing in
+    the compiled manuscript.
+
+    Args:
+        uuid: The UUID of the document whose notes to read.
+
+    Returns:
+        The plain text content of the notes, or empty string if none exist.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+
+    return current_project.read_notes(uuid)
+
+@mcp.tool()
 def update_metadata(uuid: str, field: str, value: str) -> str:
     """
     Updates the custom metadata for a document.

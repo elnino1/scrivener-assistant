@@ -19,7 +19,7 @@ Scrivener is the gold standard for long-form writing, but getting AI assistance 
 *   **FR1 Project Connection:** The server must accept a valid path to a `.scriv` directory.
 *   **FR2 Binder Structure:** The server must parse the `.scrivx` file to extract the full binder hierarchy (folders, documents) including UUIDs and titles.
 *   **FR3 Content Retrieval:** The server must be able to read the content of a specific document (identified by UUID) by locating and parsing its corresponding `.rtf` file.
-*   **FR4 Metadata Access:** The server must retrieve synopsis and notes for a given document.
+*   **FR4 Notes Access:** The server must retrieve the inspector notes for a given document via `read_document_notes(uuid)`.
 *   **FR5 Text Conversion:** The server must convert internal RTF content to clean, plain text for LLM consumption.
 *   **FR6 Metadata Writing:** The server must be able to create new custom metadata fields and populate them for specific documents.
 
@@ -96,6 +96,14 @@ Scrivener is the gold standard for long-form writing, but getting AI assistance 
     *   1: Expose an MCP tool `read_document`.
     *   2: Input: UUID string.
     *   3: Output: The plain text content of the document.
+
+#### Story 2.4: Tool: Read Document Notes
+*   As an AI, I want to call `read_document_notes(uuid)`, so that I can read the author's research and annotations attached to a scene.
+*   **Acceptance Criteria:**
+    *   1: Expose an MCP tool `read_document_notes`.
+    *   2: Input: UUID string.
+    *   3: Locates `Files/Data/{UUID}/notes.rtf` and converts it to plain text.
+    *   4: Returns empty string if no notes file exists for the document.
 
 ### Epic 3: Metadata & Analysis
 **Goal:** Enable the AI to store its analysis results directly in the Scrivener project by creating and populating custom metadata fields.
