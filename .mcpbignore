@@ -8,6 +8,7 @@ __pycache__/
 *.pyo
 .pytest_cache/
 .ruff_cache/
+node¨_modules/
 
 # CI/CD
 .github/
