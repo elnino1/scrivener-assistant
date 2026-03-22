@@ -2,7 +2,7 @@
 
 A tool that enables AI agents to read and understand [Scrivener](https://www.literatureandlatte.com/scrivener/overview) projects.
 
-It can be run locally as a **Model Context Protocol (MCP)** server for AI clients (like Claude Desktop) to connect to, or used as a standalone **Command Line Interface (CLI)**. The CLI is designed to be easily usable by both humans and AI models directly from the terminal, making debugging much simpler and consuming significantly fewer tokens when prototyping workflows.
+It can be installed as a **Desktop Extension (MCPB)** for one-click setup, run manually as a **Model Context Protocol (MCP)** server, or used as a standalone **Command Line Interface (CLI)**. The CLI is designed to be easily usable by both humans and AI models directly from the terminal, making debugging much simpler and consuming significantly fewer tokens when prototyping workflows.
 
 ## [📖 User Journey & Examples](docs/user_journey.md) - **Start Here!**
 Check out our **[User Journey Guide](docs/user_journey.md)** to see a full walkthrough of how to connect, analyze, and automate your writing workflow with reusable prompts.
@@ -15,11 +15,25 @@ Check out our **[User Journey Guide](docs/user_journey.md)** to see a full walkt
 
 ## Installation
 
-### Prerequisites
+### Option A: Desktop Extension (Recommended)
+No Python installation required. Claude Desktop uses [UV](https://github.com/astral-sh/uv) to manage the Python environment automatically.
+
+1. Download the latest `scrivener-assistant.mcpb` from the [Releases](https://github.com/elnino1/scrivener-assistant/releases) page.
+2. Double-click the `.mcpb` file — Claude Desktop will install it.
+3. Optionally set your project path in the extension settings UI.
+
+To build the `.mcpb` file yourself:
+```bash
+npm install -g @anthropic-ai/mcpb
+mcpb pack .
+```
+
+### Option B: Manual Installation (Advanced)
+
+#### Prerequisites
 *   Python 3.10 or higher
 *   `uv` (recommended) or `pip`
 
-### Installation
 The easiest way to install Scrivener Assistant is using `pip` directly from the repository.
 
 ```bash
@@ -49,11 +63,19 @@ pip install -e ".[dev]"
 
 ## Usage
 
-This project can be used in two ways: as a **Model Context Protocol (MCP) Server** for AI integrations, or as a standalone **Command Line Interface (CLI)**.
+This project can be used in three ways: as a **Desktop Extension (MCPB)**, as a manual **MCP Server**, or as a standalone **CLI**.
 
 ---
 
-### Option 1: Usage as an MCP Server
+### Option 1: Desktop Extension (MCPB) — Recommended
+
+Install the `.mcpb` file as described in the [Installation](#installation) section. Once installed, Claude Desktop launches the server automatically. You can optionally configure your Scrivener project path in the extension settings UI — or leave it blank and use the `set_project_path` tool at any time.
+
+No JSON config editing required.
+
+---
+
+### Option 2: Usage as an MCP Server (Manual)
 The primary use case is providing a context bridge for AI clients (like Claude Desktop).
 
 #### Running the Server
@@ -102,7 +124,7 @@ When running as an MCP server, the following fundamental tools are available to 
 
 ---
 
-### Option 2: Usage as a CLI
+### Option 3: Usage as a CLI
 A standalone command-line interface is available for interacting with projects directly from your terminal, without needing an MCP client. This provides direct access to the exact same capabilities as the MCP server. 
 
 > **Tip for AI Workflows:** While designed for humans, AI clients (like Claude) can also be given "skills" or "tool definitions" that allow them to execute these CLI commands. Passing Scrivener context to an AI this way can often be easier to debug and more token-efficient during complex workflows compared to using full MCP integration.
