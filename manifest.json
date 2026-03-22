@@ -14,6 +14,8 @@
     "type": "uv",
     "entry_point": "src/server.py",
     "mcp_config": {
+      "command": "uv",
+      "args": ["run", "src/server.py"],
       "env": {
         "SCRIVENER_PROJECT_PATH": "${user_config.project_path}"
       }
