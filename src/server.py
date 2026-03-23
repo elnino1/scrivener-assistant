@@ -421,7 +421,7 @@ Examples:
 
     # Fall back to env var injected by the Desktop Extension manifest
     if not args.project_path:
-        env_path = os.environ.get("SCRIVENER_PROJECT_PATH", "").strip()
+        env_path = os.environ.get("SCRIVENER_PROJECT_PATH", "").strip().strip("'\"")
         if env_path:
             args.project_path = env_path
 
