@@ -38,3 +38,22 @@ def get_notes_path(project_path: Path, uuid: str) -> Optional[Path]:
         return possible_path
 
     return None
+
+
+def get_synopsis_path(project_path: Path, uuid: str) -> Optional[Path]:
+    """
+    Locates the synopsis.txt file for a given UUID within the project.
+
+    Args:
+        project_path: Absolute path to the .scriv directory.
+        uuid: The UUID of the binder item.
+
+    Returns:
+        Path to the synopsis.txt file if it exists, else None.
+    """
+    possible_path = project_path / "Files" / "Data" / uuid / "synopsis.txt"
+
+    if possible_path.exists():
+        return possible_path
+
+    return None

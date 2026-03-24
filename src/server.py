@@ -96,6 +96,25 @@ def read_document_notes(uuid: str) -> str:
     return current_project.read_notes(uuid)
 
 @mcp.tool()
+def read_document_synopsis(uuid: str) -> str:
+    """
+    Reads the synopsis of a document by UUID.
+
+    In Scrivener, the synopsis is a short summary visible on index cards
+    in the corkboard and outliner views. It is stored as plain text.
+
+    Args:
+        uuid: The UUID of the document whose synopsis to read.
+
+    Returns:
+        The plain text synopsis, or empty string if none exists.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+
+    return current_project.read_synopsis(uuid)
+
+@mcp.tool()
 def update_metadata(uuid: str, field: str, value: str) -> str:
     """
     Updates the custom metadata for a document.

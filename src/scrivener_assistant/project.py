@@ -3,7 +3,7 @@ from typing import Optional, Dict, List
 import logging
 from scrivener_assistant.base_manager import BaseSceneDataManager
 from scrivener_assistant.binder_parser import parse_scrivx, get_binder_map
-from scrivener_assistant.content_parser import get_content_path, get_notes_path
+from scrivener_assistant.content_parser import get_content_path, get_notes_path, get_synopsis_path
 from scrivener_assistant.rtf_converter import convert_rtf_to_text
 from scrivener_assistant.metadata_manager import MetadataManager
 from scrivener_assistant.prompt_manager import PromptManager
@@ -122,6 +122,24 @@ class ScrivenerProject:
         except Exception as e:
             logger.error(f"Error reading notes for {uuid}: {e}")
             return f"[Error reading notes: {e}]"
+
+    def read_synopsis(self, uuid: str) -> str:
+        """
+        Reads the synopsis of the document with the given UUID.
+
+        Returns:
+            The plain text content of the synopsis, or empty string if no synopsis file.
+        """
+        path = get_synopsis_path(self.path, uuid)
+        if not path or not path.exists():
+            return ""
+
+        try:
+            with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                return f.read()
+        except Exception as e:
+            logger.error(f"Error reading synopsis for {uuid}: {e}")
+            return f"[Error reading synopsis: {e}]"
 
     def update_metadata(self, uuid: str, field: str, value: str) -> None:
         """
