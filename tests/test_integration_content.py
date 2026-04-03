@@ -1,5 +1,5 @@
 import pytest
-from server import set_project_path, read_document
+from server import set_project_path, read_document, read_document_notes, read_document_synopsis
 from pathlib import Path
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -29,3 +29,51 @@ def test_read_document_no_project():
     import server
     server.current_project = None
     assert "No project loaded" in read_document(VALID_UUID)
+
+# Notes — 21506607 has notes.rtf in the fixture
+def test_read_document_notes_success():
+    set_project_path(str(SAMPLE_SCRIV))
+    notes = read_document_notes(VALID_UUID)
+    assert notes != ""
+    assert "Error" not in notes
+
+def test_read_document_notes_missing_id():
+    set_project_path(str(SAMPLE_SCRIV))
+    notes = read_document_notes("FAKE-UUID-123")
+    assert notes == ""
+
+def test_read_document_notes_no_notes_file():
+    set_project_path(str(SAMPLE_SCRIV))
+    # 87D59B4E has content.rtf but no notes.rtf
+    notes = read_document_notes("87D59B4E-F1D6-4025-9FBA-33F60ED8F985")
+    assert notes == ""
+
+def test_read_document_notes_no_project():
+    import server
+    server.current_project = None
+    assert "No project loaded" in read_document_notes(VALID_UUID)
+
+# Synopsis — 684ADA52 has synopsis.txt in the fixture
+SYNOPSIS_UUID = "684ADA52-4D45-48D2-B03D-5ECB784963EE"
+
+def test_read_document_synopsis_success():
+    set_project_path(str(SAMPLE_SCRIV))
+    synopsis = read_document_synopsis(SYNOPSIS_UUID)
+    assert synopsis != ""
+    assert "Error" not in synopsis
+
+def test_read_document_synopsis_missing_id():
+    set_project_path(str(SAMPLE_SCRIV))
+    synopsis = read_document_synopsis("FAKE-UUID-123")
+    assert synopsis == ""
+
+def test_read_document_synopsis_no_synopsis_file():
+    set_project_path(str(SAMPLE_SCRIV))
+    # 87D59B4E has content.rtf but no synopsis.txt
+    synopsis = read_document_synopsis("87D59B4E-F1D6-4025-9FBA-33F60ED8F985")
+    assert synopsis == ""
+
+def test_read_document_synopsis_no_project():
+    import server
+    server.current_project = None
+    assert "No project loaded" in read_document_synopsis(VALID_UUID)

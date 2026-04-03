@@ -26,6 +26,8 @@
     {"name": "get_current_project", "description": "Get the currently loaded project path"},
     {"name": "get_binder_structure", "description": "Get the full binder hierarchy as JSON"},
     {"name": "read_document", "description": "Read document content by UUID"},
+    {"name": "read_document_notes", "description": "Read the inspector notes of a document by UUID"},
+    {"name": "read_document_synopsis", "description": "Read the synopsis (index card text) of a document by UUID"},
     {"name": "update_metadata", "description": "Update custom metadata fields on a document"},
     {"name": "prepare_chapter_analysis", "description": "Prepare a chapter for batch analysis (summary + metadata + review in one call)"},
     {"name": "save_prompt", "description": "Save a reusable prompt to the project library"},
