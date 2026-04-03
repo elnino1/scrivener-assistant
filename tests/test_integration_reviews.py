@@ -46,7 +46,7 @@ def test_review_workflow(temp_project_reviews):
     # Verify file exists on disk
     # Since it's hierarchical storage, search for the short UUID in the reviews folder
     short_uuid = uuid.split('-')[0]
-    review_files = list((temp_project_reviews / ".ai-assistant" / "reviews").rglob(f"*{short_uuid}*.md"))
+    review_files = list((temp_project_reviews / server.current_project.config.assistant_folder / "reviews").rglob(f"*{short_uuid}*.md"))
     assert len(review_files) > 0, "Review file should exist"
     review_file = review_files[0]
     assert "Strengths" in review_file.read_text()

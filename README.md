@@ -94,6 +94,7 @@ python src/server.py -p /path/to/my/project.scriv -v
 
 **Available Options:**
 - `-p, --project PATH`: Path to the .scriv project directory
+- `-s, --storage PATH`: Path to store assistant files (optional overriding of SCRIVENER_ASSISTANT_FOLDER)
 - `-v, --verbose`: Enable debug logging (default: INFO level)
 - `-h, --help`: Show help message
 

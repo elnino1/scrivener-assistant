@@ -64,3 +64,19 @@ def test_default_config_backward_compatibility(tmp_path):
     project.save_prompt("backward_compat", "Test content")
     expected_path = dest / ".ai-assistant" / "prompts" / "backward_compat.md"
     assert expected_path.exists()
+
+def test_environment_config_injection(monkeypatch, tmp_path):
+    """Test that default config picks up environment variables."""
+    monkeypatch.setenv("SCRIVENER_ASSISTANT_FOLDER", ".my-env-assistant")
+    dest = tmp_path / "env_config.scriv"
+    shutil.copytree(SAMPLE_SCRIV, dest)
+    
+    # Create project without config (should use defaults which read env var)
+    project = ScrivenerProject(str(dest))
+    
+    # Verify default config is used
+    assert project.config.assistant_folder == ".my-env-assistant"
+    
+    project.save_prompt("env_test", "Test content")
+    expected_path = dest / ".my-env-assistant" / "prompts" / "env_test.md"
+    assert expected_path.exists()

@@ -451,6 +451,12 @@ Examples:
         help="Path to the .scriv project directory"
     )
     parser.add_argument(
+        "-s", "--storage",
+        dest="storage_path",
+        metavar="PATH",
+        help="Path to store assistant files (overrides SCRIVENER_ASSISTANT_FOLDER)"
+    )
+    parser.add_argument(
         "-v", "--verbose",
         action="store_true",
         help="Enable debug logging (default: INFO level)"
@@ -463,6 +469,9 @@ Examples:
         env_path = os.environ.get("SCRIVENER_PROJECT_PATH", "").strip().strip("'\"")
         if env_path:
             args.project_path = env_path
+            
+    if args.storage_path:
+        os.environ["SCRIVENER_ASSISTANT_FOLDER"] = args.storage_path
 
     # Configure logging based on verbosity
     log_level = logging.DEBUG if args.verbose else logging.INFO

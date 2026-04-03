@@ -25,7 +25,7 @@ def test_prompt_workflow(temp_project_prompts):
     assert "Saved prompt" in res_save
     
     # Verify file exists on disk
-    prompt_file = temp_project_prompts / ".ai-assistant" / "prompts" / "analyze_test.md"
+    prompt_file = temp_project_prompts / server.current_project.config.assistant_folder / "prompts" / "analyze_test.md"
     assert prompt_file.exists()
     assert prompt_file.read_text() == "Analyze this please."
     
@@ -49,5 +49,5 @@ def test_save_prompt_sanitization(temp_project_prompts):
     # My logic: "".join(c for c in name if c.isalnum() or c in (' ', '-', '_'))
     # "unsafe/name" -> "unsafename"
     
-    expected_file = temp_project_prompts / ".ai-assistant" / "prompts" / "unsafename.md"
+    expected_file = temp_project_prompts / server.current_project.config.assistant_folder / "prompts" / "unsafename.md"
     assert expected_file.exists()

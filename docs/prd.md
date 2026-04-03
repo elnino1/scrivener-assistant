@@ -132,7 +132,7 @@ Scrivener is the gold standard for long-form writing, but getting AI assistance 
 *   **Acceptance Criteria:**
     *   1: Tool `save_summary(uuid, summary_text)`.
     *   2: Tool `get_summary(uuid)`.
-    *   3: Stored in `.ai-assistant/summaries/{uuid}.md`.
+    *   3: Stored in `<storage_path>/summaries/{uuid}.md`.
     *   4: Graceful handling if summary doesn't exist.
 
 ### Epic 5: Style Review & Batch Analysis
@@ -143,7 +143,7 @@ Scrivener is the gold standard for long-form writing, but getting AI assistance 
 *   **Acceptance Criteria:**
     *   1: Tool `save_review(uuid, review_text)` stores style feedback.
     *   2: Tool `get_review(uuid)` retrieves stored reviews.
-    *   3: Stored in `.ai-assistant/reviews/{uuid}.md`.
+    *   3: Stored in `<storage_path>/reviews/{uuid}.md`.
     *   4: Review includes: strengths, weaknesses, style suggestions.
 
 #### Story 5.2: Batch Analysis Tool
@@ -175,7 +175,7 @@ Scrivener is the gold standard for long-form writing, but getting AI assistance 
 #### Story 6.1: Character & Location Storage
 *   As a User, I want to store character and location profiles in dedicated folders, so the AI can reference them.
 *   **Acceptance Criteria:**
-    *   1: Configurable folders: `.ai-assistant/characters` and `.ai-assistant/locations`.
+    *   1: Configurable folders: `<storage_path>/characters` and `<storage_path>/locations`. (Defaults to `.ai-assistant/*`).
     *   2: One file per entity (e.g., `Gandalf.md`, `Rivendell.md`).
     *   3: Support for "hybrid" filenames if linked to binder (optional, but good for consistency).
 
