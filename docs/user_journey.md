@@ -68,7 +68,7 @@ Read the actual text of a scene to understand the context.
 
 ## Step 4: Create Reusable Prompts
 
-Instead of typing out long analysis instructions every time, save them as a reusable prompt in your project's `.ai-assistant` library.
+Instead of typing out long analysis instructions every time, save them as a reusable prompt in your configured `<storage_path>` library (defaults to `.ai-assistant`).
 
 **User Prompt:**
 > "Save a prompt called 'scene_analysis'. The content should be: 'Analyze this scene for pacing...'"
@@ -131,9 +131,9 @@ Instead of reading a chapter multiple times for different analyses, use the batc
    - Extracts metadata → calls `update_metadata(uuid, field, value)` multiple times
    - Writes style review → calls `save_review(uuid, review_text)`
 
-**Result:** All three outputs stored in your project folder:
-- `.ai-assistant/summaries/[uuid].md`
-- `.ai-assistant/reviews/[uuid].md`
+**Result:** All three outputs stored in your selected storage folder:
+- `<storage_path>/summaries/[uuid].md`
+- `<storage_path>/reviews/[uuid].md`
 - Custom metadata fields updated in `.scrivx`
 
 **Token Savings:** ~66% (1 read instead of 3 separate reads)
@@ -165,7 +165,7 @@ Get detailed editorial feedback on your writing style.
 > - Show the character's nervousness through physical actions instead of stating 'she felt nervous'
 > - Vary sentence length for better rhythm
 >
-> The full review has been saved to `.ai-assistant/reviews/[chapter-uuid].md`"
+> The full review has been saved to `<storage_path>/reviews/[chapter-uuid].md`"
 
 **Retrieve Later:**
 retrieves

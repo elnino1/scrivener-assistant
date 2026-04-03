@@ -19,6 +19,12 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Path to the .scriv project directory"
     )
+    parser.add_argument(
+        "-s", "--storage",
+        dest="storage_path",
+        required=False,
+        help="Path to store assistant files (overrides SCRIVENER_ASSISTANT_FOLDER)"
+    )
 
     subparsers = parser.add_subparsers(dest="command", required=True, help="Available commands")
 
@@ -244,7 +250,12 @@ def main():
     args = parser.parse_args()
 
     try:
-        project = ScrivenerProject(args.project_path)
+        if args.storage_path:
+            from scrivener_assistant.config import ProjectConfig
+            config = ProjectConfig(assistant_folder=args.storage_path)
+            project = ScrivenerProject(args.project_path, config=config)
+        else:
+            project = ScrivenerProject(args.project_path)
     except Exception as e:
         print(f"Error loading project: {e}", file=sys.stderr)
         sys.exit(1)
