@@ -14,9 +14,10 @@ class PromptManager:
     def __init__(self, project_path: Path, config: Optional[ProjectConfig] = None):
         self.project_path = project_path
         self.config = config or ProjectConfig.default()
+        assistant_folder_path = Path(self.config.assistant_folder).expanduser()
         self.prompts_dir = (
             self.project_path 
-            / self.config.assistant_folder 
+            / assistant_folder_path 
             / self.config.prompts_subfolder
         )
         logger.debug(f"PromptManager initialized for {project_path}, prompts_dir: {self.prompts_dir}")

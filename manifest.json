@@ -17,7 +17,8 @@
       "command": "uv",
       "args": ["run", "src/server.py"],
       "env": {
-        "SCRIVENER_PROJECT_PATH": "${user_config.project_path}"
+        "SCRIVENER_PROJECT_PATH": "${user_config.project_path}",
+        "SCRIVENER_ASSISTANT_FOLDER": "${user_config.storage_path}"
       }
     }
   },
@@ -52,6 +53,12 @@
       "type": "directory",
       "title": "Scrivener Project Path",
       "description": "Path to your .scriv project to load at startup. Leave empty to set it later using the set_project_path tool.",
+      "required": false
+    },
+    "storage_path": {
+      "type": "string",
+      "title": "Assistant Storage Path",
+      "description": "Custom location for storing assistant files (summaries, characters, etc.). Can be an absolute path or relative to the project directory. Defaults to '.ai-assistant'.",
       "required": false
     }
   },

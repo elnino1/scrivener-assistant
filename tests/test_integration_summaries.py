@@ -29,7 +29,7 @@ def test_summary_workflow(temp_project_summaries):
     
     # Verify file exists on disk
     short_uuid = uuid.split('-')[0]
-    summary_files = list((temp_project_summaries / ".ai-assistant" / "summaries").rglob(f"*{short_uuid}*.md"))
+    summary_files = list((temp_project_summaries / server.current_project.config.assistant_folder / "summaries").rglob(f"*{short_uuid}*.md"))
     assert len(summary_files) > 0, "Summary file should exist"
     summary_file = summary_files[0]
     assert summary_file.read_text() == "This is a summary of the chapter."

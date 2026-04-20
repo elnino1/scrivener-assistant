@@ -25,7 +25,7 @@ def test_character_management(temp_project):
     gandalf_bio = "# Gandalf\nA wizard is never late."
     path = project.save_character("Gandalf", gandalf_bio)
     assert "Gandalf.md" in path
-    assert (temp_project / ".ai-assistant/characters/Gandalf.md").exists()
+    assert (temp_project / f"{config.assistant_folder}/characters/Gandalf.md").exists()
     
     # 2. Get character
     content = project.get_character("Gandalf")

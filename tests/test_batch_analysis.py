@@ -66,8 +66,8 @@ def test_batch_workflow_execution(temp_project_batch):
     
     # Verify all outputs exist
     short_uuid = uuid.split('-')[0]
-    summary_files = list((temp_project_batch / ".ai-assistant" / "summaries").rglob(f"*{short_uuid}*.md"))
-    review_files = list((temp_project_batch / ".ai-assistant" / "reviews").rglob(f"*{short_uuid}*.md"))
+    summary_files = list((temp_project_batch / server.current_project.config.assistant_folder / "summaries").rglob(f"*{short_uuid}*.md"))
+    review_files = list((temp_project_batch / server.current_project.config.assistant_folder / "reviews").rglob(f"*{short_uuid}*.md"))
     
     assert len(summary_files) > 0, "Summary file should exist"
     assert len(review_files) > 0, "Review file should exist"

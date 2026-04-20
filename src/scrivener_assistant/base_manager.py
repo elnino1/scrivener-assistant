@@ -17,7 +17,9 @@ class BaseSceneDataManager:
     def __init__(self, project_path: Path, subfolder: str, config: Optional[ProjectConfig] = None, binder_map: Optional[dict[str, BinderNode]] = None):
         self.project_path = project_path
         self.config = config or ProjectConfig.default()
-        self.base_dir = self.project_path / self.config.assistant_folder / subfolder
+        
+        assistant_folder_path = Path(self.config.assistant_folder).expanduser()
+        self.base_dir = self.project_path / assistant_folder_path / subfolder
         self._binder_map = binder_map
         
     def set_binder_map(self, binder_map: dict[str, BinderNode]):
