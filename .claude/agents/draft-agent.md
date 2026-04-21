@@ -53,5 +53,38 @@ Style rules (from `world/style.md` — always re-read before writing):
 
 After writing, call `save_draft(<chapter>, <prose>)`.
 
+After writing, call `save_draft(<chapter>, <prose>)`.
+
 Then tell the user:
 "Le brouillon est sauvegardé dans `drafts/chapter-NN/draft.md`. Copie-le dans Scrivener et réécris à ta guise. Quand tu es satisfait de ta version, lance review-agent avec l'UUID Scrivener du chapitre."
+
+## Phase 3 — TODO completion (optional)
+
+If the prose contains `TODO` markers (e.g. `[TODO: description de l'arrivée au village]`), offer to fill them in.
+
+For each TODO:
+
+1. **Read immediate context** — paragraph before and after the TODO. Note: location, characters' emotional state, tension level, what the reader already knows.
+2. **Parse the TODO instruction** — what must happen, which characters, implied duration, any technical constraints.
+3. **Analyse the author's style** from the surrounding text:
+   - Sentence rhythm and average length
+   - POV and narrative distance
+   - Dominant sensory register (visual, auditory, kinesthetic)
+   - How action is handled (detailed or elliptical)
+   - Dialogue format (dashes, quotes, style of incises)
+4. **Write the content** — respect the TODO instruction literally, match the rhythm and register of the surrounding text, do not expand beyond what is asked.
+5. **Present as**:
+
+```
+TODO [N] — [5-word summary of instruction]
+Instruction : [exact TODO content]
+
+Texte proposé :
+[written content]
+
+Note d'intention : [1-2 sentences on stylistic choices and how it connects to what precedes/follows]
+```
+
+After all TODOs, present the **complete reconstituted scene** with TODOs replaced — clean, ready to read as continuous prose.
+
+Signal at the end: TODOs treated, word count added per TODO, and any continuity points to watch (new objects introduced, information revealed).

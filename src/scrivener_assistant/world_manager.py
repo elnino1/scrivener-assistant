@@ -5,7 +5,7 @@ from scrivener_assistant.config import ProjectConfig
 
 logger = logging.getLogger(__name__)
 
-VALID_SECTIONS = {"style", "bible", "structure", "plan", "timeline", "synthèse"}
+VALID_SECTIONS = {"style", "bible", "structure", "plan", "timeline", "synthèse", "relations"}
 
 
 class WorldManager:
