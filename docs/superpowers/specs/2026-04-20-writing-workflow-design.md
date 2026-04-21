@@ -27,13 +27,17 @@ All new files live inside the existing `.ai-assistant/` folder within the `.scri
 
 ```
 .ai-assistant/
-├── bible/
-│   ├── style.md               # POV, tense, tone, vocabulary rules
-│   ├── structure.md           # narrative arc, themes, chapter count
-│   ├── characters/            # one file per character (existing, promoted)
-│   └── locations/             # one file per location (existing, promoted)
+├── world/                     # EXISTING + EXTENDED — single source of truth for all story knowledge
+│   ├── _synthèse.md           # quick-reference context, loaded first each session (existing)
+│   ├── bible.md               # universe rules and established facts (existing)
+│   ├── style.md               # POV, tense, tone, vocabulary rules (existing)
+│   ├── structure.md           # narrative arc, themes (existing)
+│   ├── plan.md                # chapter-by-chapter outline (existing)
+│   ├── timeline.md            # chronological event log (existing)
+│   ├── characters/            # MOVED — one file per character (was .ai-assistant/characters/)
+│   └── locations/             # MOVED — one file per location (was .ai-assistant/locations/)
 │
-├── state/
+├── state/                     # NEW — versioned per-chapter state
 │   ├── current/               # always reflects the latest completed chapter
 │   │   ├── situation.md       # open story hooks, immediate context
 │   │   ├── characters.md      # emotional/positional state of each character
@@ -42,7 +46,7 @@ All new files live inside the existing `.ai-assistant/` folder within the `.scri
 │   └── chapter-NN/            # archived snapshot per completed chapter
 │       └── ...same 4 files
 │
-├── drafts/
+├── drafts/                    # NEW — working files per chapter
 │   └── chapter-NN/
 │       ├── brainstorm.md      # notes from the brainstorm session
 │       ├── beats.md           # scene-by-scene plan (5–8 beats)
@@ -54,21 +58,26 @@ All new files live inside the existing `.ai-assistant/` folder within the `.scri
 ```
 
 **Principles:**
-- `bible/` is the source of truth — always human-editable
+- `world/` is the single source of truth for all story knowledge — always human-editable, never auto-overwritten
 - `state/` is auto-updated by review-agent but also human-editable
 - `drafts/` is working scratch space, never treated as read-only
-- Existing `characters/` and `locations/` files stay at their current paths (`.ai-assistant/characters/`, `.ai-assistant/locations/`); they are logically part of the bible and included when `get_bible()` is called. No migration needed.
 - Chapter folders use zero-padded numbers: `chapter-05`, `chapter-12`
+
+**Migration required:**
+- Move `.ai-assistant/characters/` → `.ai-assistant/world/characters/`
+- Move `.ai-assistant/locations/` → `.ai-assistant/world/locations/`
+- Update `character_manager.py` and `location_manager.py` in the MCP server to use the new paths
+- All existing character and location files are kept as-is, only the folder path changes
 
 ---
 
 ## New MCP Tools (10)
 
-### Bible tools
+### World tools
 | Tool | Description |
 |------|-------------|
-| `get_bible(section?)` | Read style, structure, or full bible. Used by all agents as context. |
-| `save_bible(section, content)` | Write/update a bible section (style or structure). |
+| `get_world(section?)` | Read any section of `world/` (style, bible, structure, plan, timeline, synthèse) or the full world context. Used by all agents on start. |
+| `save_world(section, content)` | Write/update a world section. Accepts: style, bible, structure, plan, timeline, synthèse. |
 
 ### State tools
 | Tool | Description |
@@ -100,7 +109,7 @@ Three agents in `.claude/agents/`, each mapping to one phase.
 
 **Purpose:** Help plan the next chapter(s) through dialogue.
 
-**Reads on start:** full bible, current state, last 2 chapter summaries.
+**Reads on start:** full world context, current state, last 2 chapter summaries.
 
 **Behavior:**
 - Conversational: asks about the user's intentions, raises continuity risks, suggests plot directions
@@ -114,7 +123,7 @@ Three agents in `.claude/agents/`, each mapping to one phase.
 
 **Purpose:** Produce beats and prose for the next chapter.
 
-**Reads on start:** brainstorm notes, full bible, current state.
+**Reads on start:** brainstorm notes, full world context, current state.
 
 **Two internal phases:**
 1. **Beats** — creates 5–8 scene beats respecting style + continuity, saves to `drafts/chapter-NN/beats.md`
@@ -128,28 +137,30 @@ No validation gates — drafts once. The human then rewrites in Scrivener.
 
 **Purpose:** Review the human-rewritten chapter and update story state.
 
-**Reads on start:** the Scrivener document (by UUID), full bible, current state.
+**Reads on start:** the Scrivener document (by UUID), full world context, current state.
 
 **Three sequential checks:**
-1. Style consistency — checks against `bible/style.md`
-2. Character authenticity — checks against `bible/characters/` and `state/current/characters.md`
+1. Style consistency — checks against `world/style.md`
+2. Character authenticity — checks against `world/characters/` and `state/current/characters.md`
 3. Continuity — checks timeline, locations, knowledge boundaries against `state/current/`
 
 **Outputs:**
 - Saves structured review to `reviews/` (existing versioned system)
 - Always saves a new `state/chapter-NN/` snapshot and updates `state/current/` — regardless of issues found. The user can re-run after corrections.
-- Prompts user to update `bible/characters/` or `bible/locations/` if new entities appeared
+- Prompts user to update `world/characters/` or `world/locations/` if new entities appeared
 
 ---
 
 ## Bootstrap (One-Time Setup)
 
-For existing Scrivener projects:
+For the current project, `world/` files already exist and are the starting point:
 
-1. Call `extract_bible_from_chapters(uuids)` on existing chapters
-2. Review the output and save to `bible/style.md`, `bible/structure.md`, characters, locations
-3. Manually create `state/current/` to reflect the current story situation
+1. Move `.ai-assistant/characters/` → `.ai-assistant/world/characters/`
+2. Move `.ai-assistant/locations/` → `.ai-assistant/world/locations/`
+3. Manually create `state/current/` to reflect where the story currently stands (draw from `world/_synthèse.md` as a starting point)
 4. From that point on, `review-agent` keeps state updated automatically
+
+For future projects starting from scratch, call `extract_bible_from_chapters(uuids)` on existing chapters, review the output, and save to `world/` files before creating `state/current/`.
 
 ---
 
