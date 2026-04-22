@@ -430,6 +430,237 @@ def list_locations() -> str:
         return "No locations found."
     return "Available locations:\n" + "\n".join(f"- {l}" for l in locs)
 
+# --- World Tools ---
+
+@mcp.tool()
+def get_world(section: str = "") -> str:
+    """
+    Reads world context from world/.
+    Args:
+        section: One of style, bible, structure, plan, timeline, synthesis.
+                 Leave empty to get all sections concatenated.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        data = current_project.get_world(section)
+        if not data:
+            return f"No world data found{' for section ' + section if section else ''}."
+        if section:
+            return data.get(section, f"Section '{section}' not found.")
+        return "\n\n---\n\n".join(f"# {k}\n\n{v}" for k, v in sorted(data.items()))
+    except Exception as e:
+        return f"Error reading world: {e}"
+
+@mcp.tool()
+def save_world(section: str, content: str) -> str:
+    """
+    Writes a world context file.
+    Args:
+        section: One of style, bible, structure, plan, timeline, synthesis.
+        content: Full markdown content to write.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        path = current_project.save_world(section, content)
+        return f"Saved world section '{section}' to {path}"
+    except ValueError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Error saving world section: {e}"
+
+# --- State Tools ---
+
+@mcp.tool()
+def get_story_state(chapter: int = 0) -> str:
+    """
+    Reads story state.
+    Args:
+        chapter: Chapter number to read archived state for.
+                 Pass 0 (default) to read current state.
+    Returns all 4 state files (situation, characters, knowledge, inventory).
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        state = current_project.get_story_state(chapter)
+        if not state:
+            label = "current state" if chapter == 0 else f"state for chapter {chapter:02d}"
+            return f"No {label} found. Run the bootstrap or save_story_state to initialize."
+        label = "Current state" if chapter == 0 else f"State — chapter {chapter:02d}"
+        parts = [f"# {label}"]
+        for key in ["situation", "characters", "knowledge", "inventory"]:
+            parts.append(f"\n## {key.capitalize()}\n\n{state.get(key, '')}")
+        return "\n".join(parts)
+    except Exception as e:
+        return f"Error reading story state: {e}"
+
+@mcp.tool()
+def save_story_state(chapter: int, situation: str, characters: str, knowledge: str, inventory: str) -> str:
+    """
+    Saves a chapter state snapshot and updates state/current/.
+    Archives the previous current state under state/chapter-NN/ first.
+    Args:
+        chapter: The chapter number just completed (used for archiving).
+        situation: Open story hooks, immediate context.
+        characters: Emotional/positional state of each character.
+        knowledge: What each character knows at this point.
+        inventory: Object locations and ownership.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        path = current_project.save_story_state(chapter, situation, characters, knowledge, inventory)
+        return f"Saved state for chapter {chapter:02d}. Current state updated at {path}"
+    except Exception as e:
+        return f"Error saving story state: {e}"
+
+@mcp.tool()
+def list_story_states() -> str:
+    """Lists all archived chapter state snapshots."""
+    if not current_project:
+        return NO_PROJECT_MSG
+    snapshots = current_project.list_story_states()
+    if not snapshots:
+        return "No archived state snapshots found."
+    return "Archived state snapshots:\n" + "\n".join(f"- {s}" for s in snapshots)
+
+# --- Draft Tools ---
+
+@mcp.tool()
+def save_brainstorm(chapter: int, content: str) -> str:
+    """
+    Saves brainstorm notes for a chapter.
+    Args:
+        chapter: Chapter number.
+        content: Notes from the brainstorm session.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        path = current_project.save_brainstorm(chapter, content)
+        return f"Saved brainstorm for chapter {chapter:02d} to {path}"
+    except Exception as e:
+        return f"Error saving brainstorm: {e}"
+
+@mcp.tool()
+def save_beats(chapter: int, content: str) -> str:
+    """
+    Saves scene beats for a chapter.
+    Args:
+        chapter: Chapter number.
+        content: Scene-by-scene plan (5–8 beats).
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        path = current_project.save_beats(chapter, content)
+        return f"Saved beats for chapter {chapter:02d} to {path}"
+    except Exception as e:
+        return f"Error saving beats: {e}"
+
+@mcp.tool()
+def save_draft(chapter: int, content: str) -> str:
+    """
+    Saves AI-generated prose for a chapter.
+    Args:
+        chapter: Chapter number.
+        content: Full prose draft.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        path = current_project.save_draft(chapter, content)
+        return f"Saved draft for chapter {chapter:02d} to {path}"
+    except Exception as e:
+        return f"Error saving draft: {e}"
+
+@mcp.tool()
+def get_draft(chapter: int) -> str:
+    """
+    Reads the AI draft for a chapter.
+    Args:
+        chapter: Chapter number.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    content = current_project.get_draft(chapter)
+    if content:
+        return content
+    return f"No draft found for chapter {chapter:02d}."
+
+# --- Extraction Tool ---
+
+@mcp.tool()
+def extract_bible_from_chapters(uuids: list) -> str:
+    """
+    Reads a list of Scrivener documents and returns aggregated text ready
+    for bible extraction. Does NOT save anything — returns the content so
+    Claude can analyze it and the user can confirm before saving to world/.
+
+    Args:
+        uuids: List of document UUIDs to read and aggregate.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    if not uuids:
+        return "Error: provide at least one UUID."
+
+    parts = []
+    errors = []
+    for uuid in uuids:
+        content = current_project.read_document(uuid)
+        if not content:
+            errors.append(uuid)
+            continue
+        node = current_project.binder_map.get(uuid)
+        title = node.title if node else uuid
+        parts.append(f"## {title} ({uuid})\n\n{content}")
+
+    if errors:
+        error_note = f"\n\n> Could not read {len(errors)} document(s): {', '.join(errors)}"
+    else:
+        error_note = ""
+
+    aggregated = "\n\n---\n\n".join(parts) + error_note
+
+    return f"""# Chapters for Bible Extraction
+
+{aggregated}
+
+---
+
+## Analysis Instructions
+
+Based on the chapters above, extract the following and return structured markdown:
+
+### 1. Style guide (for world/style.md)
+- Narrative POV and tense
+- Sentence rhythm patterns (with examples)
+- Vocabulary register and recurring phrases
+- Distinctive stylistic techniques
+
+### 2. Characters (for world/characters/<name>.md per character)
+- Name, approximate age, role
+- Personality traits and speech patterns
+- Key relationships
+- Knowledge state at end of last chapter
+
+### 3. Locations (for world/locations/<name>.md per location)
+- Name and physical description
+- Atmosphere and sensory details
+- Story function
+
+### 4. Narrative structure (for world/structure.md)
+- Main themes
+- Story arc so far
+- Open plot threads
+
+After analysis, save each section using save_world(), save_character(), save_location() as appropriate.
+"""
+
+
 def main():
     global current_project
     

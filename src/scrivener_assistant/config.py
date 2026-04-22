@@ -14,8 +14,11 @@ class ProjectConfig:
     prompts_subfolder: str = "prompts"
     summaries_subfolder: str = "summaries"
     reviews_subfolder: str = "reviews"
-    characters_subfolder: str = "characters"
-    locations_subfolder: str = "locations"
+    characters_subfolder: str = "world/characters"
+    locations_subfolder: str = "world/locations"
+    world_subfolder: str = "world"
+    state_subfolder: str = "state"
+    drafts_subfolder: str = "drafts"
     max_backups: int = 5
     
     @classmethod
