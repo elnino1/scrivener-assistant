@@ -1,5 +1,8 @@
 # Scrivener Assistant: User Journey & Prompt Examples
 
+> **This document covers the original read-and-analyze workflow.**
+> For the full writing workflow with brainstorm/draft/review agents, see the **[User Guide](user_guide.md)**.
+
 This guide demonstrates how to use the Scrivener Assistant to analyze and improve your writing project. It follows a typical workflow from connecting to a project to storing deep analysis in your metadata.
 
 ## Workflow Overview
