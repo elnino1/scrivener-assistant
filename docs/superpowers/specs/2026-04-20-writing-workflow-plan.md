@@ -75,7 +75,7 @@ Manages `world/` flat files. Unlike `BaseSceneDataManager` (which manages UUID-k
 
 ```python
 class WorldManager:
-    VALID_SECTIONS = {"style", "bible", "structure", "plan", "timeline", "synthèse"}
+    VALID_SECTIONS = {"style", "bible", "structure", "plan", "timeline", "synthesis"}
 
     def __init__(self, project_path: Path, config: ProjectConfig): ...
 
@@ -183,7 +183,7 @@ def get_world(section: str = "") -> str:
     """
     Reads world context files from world/.
     Args:
-        section: One of style, bible, structure, plan, timeline, synthèse.
+        section: One of style, bible, structure, plan, timeline, synthesis.
                  Leave empty to get all sections concatenated.
     """
 
@@ -192,7 +192,7 @@ def save_world(section: str, content: str) -> str:
     """
     Writes a world context file.
     Args:
-        section: One of style, bible, structure, plan, timeline, synthèse.
+        section: One of style, bible, structure, plan, timeline, synthesis.
         content: Full markdown content to write.
     """
 ```
@@ -290,7 +290,7 @@ model: claude-sonnet-4-6
 You are a story planning assistant for the novel "Mère".
 
 On start:
-1. Call `get_world()` to load full world context (style, bible, structure, plan, timeline, synthèse)
+1. Call `get_world()` to load full world context (style, bible, structure, plan, timeline, synthesis)
 2. Call `get_story_state()` to load current story state
 3. Call `get_summary` on the last 2 chapters (ask the user for their UUIDs if unknown)
 

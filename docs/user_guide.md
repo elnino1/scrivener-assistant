@@ -25,7 +25,7 @@ Everything lives inside `.ai-assistant/` within your `.scriv` bundle. Your manus
 ```
 .ai-assistant/
 ├── world/                  ← source of truth for all story knowledge (human-editable)
-│   ├── _synthèse.md        quick-reference context loaded at the start of each session
+│   ├── synthesis.md        quick-reference context loaded at the start of each session
 │   ├── bible.md            universe rules and established facts
 │   ├── style.md            POV, tense, rhythm, vocabulary rules
 │   ├── structure.md        narrative arc and themes
@@ -78,7 +78,7 @@ save_location("LocationName", <content>)
 
 **Step 2 — Create the initial state**
 
-Create `state/current/` manually (or ask Claude to draft it from your `world/_synthèse.md`):
+Create `state/current/` manually (or ask Claude to draft it from your `world/synthesis.md`):
 
 - `situation.md` — where does the story stand right now? What hooks are open?
 - `characters.md` — where is each character emotionally and physically?

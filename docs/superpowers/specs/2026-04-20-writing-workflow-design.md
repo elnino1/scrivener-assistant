@@ -28,7 +28,7 @@ All new files live inside the existing `.ai-assistant/` folder within the `.scri
 ```
 .ai-assistant/
 ├── world/                     # EXISTING + EXTENDED — single source of truth for all story knowledge
-│   ├── _synthèse.md           # quick-reference context, loaded first each session (existing)
+│   ├── synthesis.md           # quick-reference context, loaded first each session (existing)
 │   ├── bible.md               # universe rules and established facts (existing)
 │   ├── style.md               # POV, tense, tone, vocabulary rules (existing)
 │   ├── structure.md           # narrative arc, themes (existing)
@@ -76,8 +76,8 @@ All new files live inside the existing `.ai-assistant/` folder within the `.scri
 ### World tools
 | Tool | Description |
 |------|-------------|
-| `get_world(section?)` | Read any section of `world/` (style, bible, structure, plan, timeline, synthèse) or the full world context. Used by all agents on start. |
-| `save_world(section, content)` | Write/update a world section. Accepts: style, bible, structure, plan, timeline, synthèse. |
+| `get_world(section?)` | Read any section of `world/` (style, bible, structure, plan, timeline, synthesis) or the full world context. Used by all agents on start. |
+| `save_world(section, content)` | Write/update a world section. Accepts: style, bible, structure, plan, timeline, synthesis. |
 
 ### State tools
 | Tool | Description |
@@ -157,7 +157,7 @@ For the current project, `world/` files already exist and are the starting point
 
 1. Move `.ai-assistant/characters/` → `.ai-assistant/world/characters/`
 2. Move `.ai-assistant/locations/` → `.ai-assistant/world/locations/`
-3. Manually create `state/current/` to reflect where the story currently stands (draw from `world/_synthèse.md` as a starting point)
+3. Manually create `state/current/` to reflect where the story currently stands (draw from `world/synthesis.md` as a starting point)
 4. From that point on, `review-agent` keeps state updated automatically
 
 For future projects starting from scratch, call `extract_bible_from_chapters(uuids)` on existing chapters, review the output, and save to `world/` files before creating `state/current/`.

@@ -5,11 +5,11 @@ from scrivener_assistant.config import ProjectConfig
 
 logger = logging.getLogger(__name__)
 
-VALID_SECTIONS = {"style", "bible", "structure", "plan", "timeline", "synthèse", "relations"}
+VALID_SECTIONS = {"style", "bible", "structure", "plan", "timeline", "synthesis", "relations"}
 
 
 class WorldManager:
-    """Manages flat markdown files in world/ (style, bible, structure, plan, timeline, synthèse)."""
+    """Manages flat markdown files in world/ (style, bible, structure, plan, timeline, synthesis)."""
 
     def __init__(self, project_path: Path, config: ProjectConfig):
         self.base_dir = project_path / config.assistant_folder / config.world_subfolder

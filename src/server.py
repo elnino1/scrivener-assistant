@@ -437,7 +437,7 @@ def get_world(section: str = "") -> str:
     """
     Reads world context from world/.
     Args:
-        section: One of style, bible, structure, plan, timeline, synthèse.
+        section: One of style, bible, structure, plan, timeline, synthesis.
                  Leave empty to get all sections concatenated.
     """
     if not current_project:
@@ -457,7 +457,7 @@ def save_world(section: str, content: str) -> str:
     """
     Writes a world context file.
     Args:
-        section: One of style, bible, structure, plan, timeline, synthèse.
+        section: One of style, bible, structure, plan, timeline, synthesis.
         content: Full markdown content to write.
     """
     if not current_project:
