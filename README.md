@@ -4,9 +4,9 @@ A writing companion for authors using [Scrivener](https://www.literatureandlatte
 
 It can be installed as a **Desktop Extension (MCPB)** for one-click setup, run manually as a **Model Context Protocol (MCP)** server, or used as a standalone **Command Line Interface (CLI)**.
 
-## [📖 Writing Workflow Guide](docs/user_guide.md) — Start Here
+## [📖 User Guide](docs/user_guide.md) — Start Here
 
-If you want to use the full writing workflow (brainstorm → draft → review → state tracking), read the **[User Guide](docs/user_guide.md)** first.
+Read the **[User Guide](docs/user_guide.md)** to set up the writing workflow (brainstorm → draft → review → state tracking).
 
 ## Features
 

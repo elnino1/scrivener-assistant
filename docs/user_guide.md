@@ -29,7 +29,7 @@ Everything lives inside `.ai-assistant/` within your `.scriv` bundle. Your manus
 │   ├── bible.md            universe rules and established facts
 │   ├── style.md            POV, tense, rhythm, vocabulary rules
 │   ├── structure.md        narrative arc and themes
-│   ├── plan.md             chapter-by-chapter outline with [ÉCRIT]/[PRÉVU]/[ENVISAGÉ] status
+│   ├── plan.md             chapter-by-chapter outline with [WRITTEN]/[PLANNED]/[CONSIDERED] status
 │   ├── timeline.md         chronological event log
 │   ├── relations.md        character relationship map
 │   ├── characters/         one .md file per character
@@ -147,15 +147,15 @@ Copy the draft into Scrivener and rewrite freely. The AI draft is a starting poi
 Claude will use `review-agent`, which:
 1. Reads your chapter directly from Scrivener
 2. Runs 5 checks:
-   - **Rythme** — sentence variation, pacing balance
-   - **Voix des personnages** — distinct voices, register consistency
-   - **Dialogues** — advancing plot, no artificial exposition
-   - **Montrer vs raconter** — emotional labeling vs sensory grounding
-   - **Cohérence** — factual continuity, knowledge violations, timeline
+   - **Rhythm** — sentence variation, pacing balance
+   - **Character voices** — distinct voices, register consistency
+   - **Dialogue quality** — advancing plot, no artificial exposition
+   - **Show vs tell** — emotional labeling vs sensory grounding
+   - **Consistency** — factual continuity, knowledge violations, timeline
 3. Assigns a **score /10** with justification
 4. Saves a **structured summary** (narrative + key plot points + emotional close)
-5. Saves **7 metadata fields** to Scrivener (Personnages présents, Lieux, Intrigue, Arc émotionnel, Philosophie, Tension, Score)
-6. Updates `world/plan.md` — marks the chapter as `[ÉCRIT]`, checks for premature reveals
+5. Saves **7 metadata fields** to Scrivener (Characters present, Locations, Plot, Emotional arc, Philosophy, Tension, Score)
+6. Updates `world/plan.md` — marks the chapter as written, checks for premature reveals
 7. Saves a new **state snapshot** to `state/chapter-06/` and updates `state/current/`
 
 If new characters or locations appeared, it prompts you to save their profiles.
@@ -180,12 +180,12 @@ Use `scene-chronicler` when you want to thoroughly process any scene — not for
 - When you want character sheets, location sheets, and world updates all in one pass
 
 **What it does (6 steps):**
-1. **Résumé** — structured narrative summary + key plot points, saved via `save_summary`
-2. **Métadonnées** — 7 fields extracted and saved via `update_metadata`
-3. **Fiches personnages** — character sheets created or enriched for every character present
-4. **Fiches lieux** — location sheets created or enriched for every setting
-5. **Analyse de style** — 5-point quality analysis + score/10 + `save_review`
-6. **Fichiers world** — updates `plan.md`, `timeline.md`, `relations.md`, `bible.md` as needed
+1. **Summary** — structured narrative summary + key plot points, saved via `save_summary`
+2. **Metadata** — 7 fields extracted and saved via `update_metadata`
+3. **Character sheets** — created or enriched for every character present
+4. **Location sheets** — created or enriched for every setting
+5. **Style analysis** — 5-point quality analysis + score/10 + `save_review`
+6. **World files** — updates `plan.md`, `timeline.md`, `relations.md`, `bible.md` as needed
 
 It reads the document once and processes everything sequentially. Each step is confirmed before continuing.
 
@@ -198,7 +198,7 @@ It reads the document once and processes everything sequentially. Each step is c
 | `brainstorm-agent` | Before writing a chapter | Dialogue to plan direction, continuity checks, saves brainstorm notes |
 | `draft-agent` | After brainstorm | Beats → prose → TODO filling, saves to `drafts/` |
 | `review-agent` | After human rewrite | 5-point review, score, summary, metadata, state update, plan update |
-| `scene-chronicler` | Bootstrap or deep enrichment | Full 6-step pipeline: résumé, metadata, character sheets, location sheets, style review, world files |
+| `scene-chronicler` | Bootstrap or deep enrichment | Full 6-step pipeline: summary, metadata, character sheets, location sheets, style review, world files |
 
 **`review-agent` vs `scene-chronicler`:**
 - `review-agent` is for the writing loop — fast, focused on quality feedback and keeping state current
