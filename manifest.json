@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "scrivener-assistant",
   "display_name": "Scrivener Assistant",
-  "version": "0.1.0",
+  "version": "0.0.0-dev",
   "description": "AI assistant for Scrivener writing projects — read binder structure, documents, and manage summaries, reviews, characters, and locations.",
   "long_description": "Connect Claude to your Scrivener projects. Read binder structure, document content (RTF auto-converted to plain text), and manage AI-generated summaries, style reviews, character profiles, and location notes — all stored safely inside your .scriv bundle.",
   "author": {
