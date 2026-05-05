@@ -59,7 +59,7 @@ jobs:
         run: npm install -g @anthropic-ai/mcpb
 
       - name: Pack Desktop Extension
-        run: mcpb pack . scrivener-assistant.mcpb
+        run: mcpb pack . scrivener-assistant-${{ steps.tag_version.outputs.new_version }}.mcpb
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -68,6 +68,6 @@ jobs:
           name: ${{ steps.tag_version.outputs.new_tag }}
           body: ${{ steps.tag_version.outputs.changelog }}
           files: |
-            scrivener-assistant.mcpb
+            scrivener-assistant-*.mcpb
             dist/*.whl
             dist/*.tar.gz
