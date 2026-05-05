@@ -1,6 +1,6 @@
 [project]
-name = "scrivener-assistant-mcp"
-version = "0.1.0"
+name = "scrivener-assistant"
+version = "0.0.0-dev"
 description = "A Model Context Protocol server for Scrivener projects"
 readme = "README.md"
 requires-python = ">=3.10"

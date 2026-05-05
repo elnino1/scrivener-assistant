@@ -28,6 +28,17 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           default_bump: patch
 
+      - name: Inject version into package files
+        run: |
+          VERSION=${{ steps.tag_version.outputs.new_version }}
+          sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+          python3 -c "
+          import json, sys
+          with open('manifest.json') as f: d = json.load(f)
+          d['version'] = sys.argv[1]
+          with open('manifest.json', 'w') as f: json.dump(d, f, indent=2)
+          " "$VERSION"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
