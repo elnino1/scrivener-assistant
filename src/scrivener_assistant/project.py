@@ -9,6 +9,9 @@ from scrivener_assistant.metadata_manager import MetadataManager
 from scrivener_assistant.prompt_manager import PromptManager
 from scrivener_assistant.summary_manager import SummaryManager
 from scrivener_assistant.review_manager import ReviewManager
+from scrivener_assistant.world_manager import WorldManager
+from scrivener_assistant.state_manager import StateManager
+from scrivener_assistant.draft_manager import DraftManager
 from scrivener_assistant.config import ProjectConfig
 
 logger = logging.getLogger(__name__)
@@ -37,7 +40,14 @@ class ScrivenerProject:
         self.review_manager = ReviewManager(self.path, self.config, binder_map=self.binder_map)
         self.character_manager = BaseSceneDataManager(self.path, self.config.characters_subfolder, self.config, binder_map=None)
         self.location_manager = BaseSceneDataManager(self.path, self.config.locations_subfolder, self.config, binder_map=None)
-        
+        self.world_manager = WorldManager(self.path, self.config)
+        self.state_manager = StateManager(self.path, self.config)
+        self.draft_manager = DraftManager(self.path, self.config)
+
+        # Migrate characters/locations to world/ if still at old paths
+        from scrivener_assistant.migration_tool import migrate_characters_locations
+        migrate_characters_locations(self.path, self.config)
+
         logger.info(f"ScrivenerProject initialized successfully for {self.path}")
 
     def _validate_path(self) -> None:
@@ -210,6 +220,46 @@ class ScrivenerProject:
     def list_locations(self) -> List[str]:
         """Lists available locations."""
         return self.location_manager.list_items()
+
+    # --- World Management ---
+    def get_world(self, section: str = "") -> dict:
+        if section:
+            content = self.world_manager.get_section(section)
+            return {section: content} if content is not None else {}
+        return self.world_manager.get_all()
+
+    def save_world(self, section: str, content: str) -> str:
+        path = self.world_manager.save_section(section, content)
+        return str(path)
+
+    # --- State Management ---
+    def get_story_state(self, chapter: int = 0) -> Optional[dict]:
+        if chapter == 0:
+            return self.state_manager.get_current()
+        return self.state_manager.get_chapter(chapter)
+
+    def save_story_state(self, chapter: int, situation: str, characters: str, knowledge: str, inventory: str) -> str:
+        path = self.state_manager.save_state(chapter, situation, characters, knowledge, inventory)
+        return str(path)
+
+    def list_story_states(self) -> List[str]:
+        return self.state_manager.list_snapshots()
+
+    # --- Draft Management ---
+    def save_brainstorm(self, chapter: int, content: str) -> str:
+        path = self.draft_manager.save_file(chapter, "brainstorm", content)
+        return str(path)
+
+    def save_beats(self, chapter: int, content: str) -> str:
+        path = self.draft_manager.save_file(chapter, "beats", content)
+        return str(path)
+
+    def save_draft(self, chapter: int, content: str) -> str:
+        path = self.draft_manager.save_file(chapter, "draft", content)
+        return str(path)
+
+    def get_draft(self, chapter: int) -> Optional[str]:
+        return self.draft_manager.get_file(chapter, "draft")
 
     def __repr__(self):
         return f"<ScrivenerProject path='{self.path}'>"

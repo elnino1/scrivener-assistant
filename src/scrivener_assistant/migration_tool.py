@@ -1,5 +1,6 @@
 import logging
 import argparse
+import shutil
 from pathlib import Path
 from typing import Optional
 from scrivener_assistant.project import ScrivenerProject
@@ -58,6 +59,42 @@ def migrate_project(project_path: str):
         logger.error(f"Migration failed: {e}")
         import traceback
         traceback.print_exc()
+
+def migrate_characters_locations(project_path: Path, config: ProjectConfig) -> None:
+    """
+    Moves .ai-assistant/characters/ and .ai-assistant/locations/ into
+    .ai-assistant/world/characters/ and .ai-assistant/world/locations/.
+    Idempotent: safe to call if already migrated or if folders don't exist.
+    """
+    assistant_dir = project_path / config.assistant_folder
+
+    for old_name, new_rel in [("characters", config.characters_subfolder),
+                               ("locations", config.locations_subfolder)]:
+        old_path = assistant_dir / old_name
+        new_path = assistant_dir / new_rel
+
+        if not old_path.exists() or old_path == new_path:
+            continue
+
+        new_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if new_path.exists():
+            # Merge: move individual files that don't already exist at destination
+            for src_file in old_path.rglob("*"):
+                if src_file.is_file():
+                    rel = src_file.relative_to(old_path)
+                    dst_file = new_path / rel
+                    if not dst_file.exists():
+                        dst_file.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.move(str(src_file), str(dst_file))
+                        logger.info(f"Moved {src_file.name} -> {dst_file.relative_to(project_path)}")
+            # Remove old dir if now empty
+            if not any(old_path.rglob("*")):
+                old_path.rmdir()
+        else:
+            shutil.move(str(old_path), str(new_path))
+            logger.info(f"Moved {old_name}/ -> {new_rel}/")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Migrate Scrivener AI Assistant data to hierarchical structure.")
