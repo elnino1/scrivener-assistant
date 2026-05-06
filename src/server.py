@@ -661,6 +661,58 @@ After analysis, save each section using save_world(), save_character(), save_loc
 """
 
 
+@mcp.tool()
+def rebuild_scene_registry() -> str:
+    """
+    Rebuilds the scene_registry.json file from scratch.
+
+    Reads every Text-type binder node and aggregates: title, binder path,
+    word count, synopsis, custom metadata, summary, and review status.
+    Useful to bootstrap a project that already has summaries or reviews but
+    no registry file yet.
+
+    Returns:
+        Status message with scene count and file path.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        path = current_project.rebuild_scene_registry()
+        registry = current_project.get_scene_registry()
+        count = registry["scene_count"] if registry else 0
+        return f"Scene registry rebuilt: {count} scenes → {path}"
+    except Exception as e:
+        return f"Error rebuilding scene registry: {e}"
+
+
+@mcp.tool()
+def get_scene_registry(uuid: str = "") -> str:
+    """
+    Returns scene registry data as JSON.
+
+    Args:
+        uuid: Leave empty to return the full registry.
+              Provide a UUID to return a single scene entry.
+
+    Returns:
+        JSON string of the full registry or a single scene dict.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+
+    import json
+    if uuid:
+        scene = current_project.scene_registry.get_scene(uuid)
+        if scene is None:
+            return f"Scene {uuid} not found in registry. Run rebuild_scene_registry first."
+        return json.dumps(scene, indent=2)
+
+    registry = current_project.get_scene_registry()
+    if registry is None:
+        return "Scene registry not found. Run rebuild_scene_registry to create it."
+    return json.dumps(registry, indent=2)
+
+
 def main():
     global current_project
     
