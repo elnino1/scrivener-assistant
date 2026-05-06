@@ -118,6 +118,43 @@ class MetadataManager:
         logger.info(f"Created new metadata field '{field_name}' with ID: {new_id}")
         return new_id
 
+    def get_custom_metadata(self, uuid: str) -> dict[str, str]:
+        """
+        Returns all custom metadata values for a binder item as {field_name: value}.
+        Resolves FieldID -> human name via CustomMetaDataSettings.
+        """
+        item = self.root.find(f".//BinderItem[@UUID='{uuid}']")
+        if item is None:
+            return {}
+
+        custom_metadata = item.find(".//MetaData/CustomMetaData")
+        if custom_metadata is None:
+            return {}
+
+        # Build FieldID -> name map from settings
+        id_to_name: dict[str, str] = {}
+        settings = self.root.find("CustomMetaDataSettings")
+        if settings is not None:
+            for field in settings.findall("MetaDataField"):
+                fid = field.get("ID", "")
+                title_elem = field.find("Title")
+                if title_elem is not None and title_elem.text:
+                    id_to_name[fid] = title_elem.text
+                elif field.text:
+                    id_to_name[fid] = field.text
+
+        result: dict[str, str] = {}
+        for meta_item in custom_metadata.findall("MetaDataItem"):
+            fid_elem = meta_item.find("FieldID")
+            val_elem = meta_item.find("Value")
+            if fid_elem is None or val_elem is None:
+                continue
+            fid = fid_elem.text or ""
+            name = id_to_name.get(fid, fid)
+            result[name] = val_elem.text or ""
+
+        return result
+
     def update_metadata(self, uuid: str, field_name: str, value: str) -> None:
         """
         Updates (or creates) a metadata value for a specific Binder Item.

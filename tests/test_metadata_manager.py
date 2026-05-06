@@ -55,6 +55,23 @@ def test_update_metadata_value(temp_project):
     assert meta_item is not None
     assert meta_item.find("Value").text == "A crucial scene."
 
+def test_get_custom_metadata_empty(temp_project):
+    scrivx = list(temp_project.glob("*.scrivx"))[0]
+    manager = MetadataManager(scrivx)
+    uuid = "21506607-96CA-4FB1-8B5F-A1859F4DCEDE"  # Copyright — no custom metadata yet
+    assert manager.get_custom_metadata(uuid) == {}
+
+def test_get_custom_metadata_returns_values(temp_project):
+    scrivx = list(temp_project.glob("*.scrivx"))[0]
+    manager = MetadataManager(scrivx)
+    uuid = "21506607-96CA-4FB1-8B5F-A1859F4DCEDE"
+
+    manager.update_metadata(uuid, "Status", "Draft")
+    manager.update_metadata(uuid, "POV", "Alice")
+
+    result = manager.get_custom_metadata(uuid)
+    assert result == {"Status": "Draft", "POV": "Alice"}
+
 def test_rolling_backup(temp_project):
     scrivx = list(temp_project.glob("*.scrivx"))[0]
     manager = MetadataManager(scrivx)
