@@ -46,7 +46,19 @@
     {"name": "list_characters", "description": "List all saved character profiles"},
     {"name": "save_location", "description": "Save a location profile"},
     {"name": "get_location", "description": "Retrieve a location profile by name"},
-    {"name": "list_locations", "description": "List all saved location profiles"}
+    {"name": "list_locations", "description": "List all saved location profiles"},
+    {"name": "get_world", "description": "Read world context sections (synthesis, bible, style, structure, plan, timeline, relations)"},
+    {"name": "save_world", "description": "Write a world context section"},
+    {"name": "get_story_state", "description": "Read current or archived chapter state"},
+    {"name": "save_story_state", "description": "Save a chapter state snapshot and update current state"},
+    {"name": "list_story_states", "description": "List all archived chapter state snapshots"},
+    {"name": "save_brainstorm", "description": "Save brainstorm notes for a chapter"},
+    {"name": "save_beats", "description": "Save scene beats for a chapter"},
+    {"name": "save_draft", "description": "Save AI-generated prose for a chapter"},
+    {"name": "get_draft", "description": "Retrieve the AI draft for a chapter"},
+    {"name": "extract_bible_from_chapters", "description": "Aggregate content from multiple chapters for bible extraction"},
+    {"name": "rebuild_scene_registry", "description": "Rebuild scene_registry.json from the full project state"},
+    {"name": "get_scene_registry", "description": "Return the scene registry as JSON (full or single scene by UUID)"}
   ],
   "user_config": {
     "project_path": {

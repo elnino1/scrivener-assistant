@@ -65,6 +65,30 @@ def test_default_config_backward_compatibility(tmp_path):
     expected_path = dest / ".ai-assistant" / "prompts" / "backward_compat.md"
     assert expected_path.exists()
 
+def test_unresolved_template_placeholder_falls_back_to_default(monkeypatch, tmp_path):
+    """Unresolved manifest placeholder must not be used as a literal folder name."""
+    monkeypatch.setenv("SCRIVENER_ASSISTANT_FOLDER", "${user_config.storage_path}")
+    dest = tmp_path / "placeholder.scriv"
+    shutil.copytree(SAMPLE_SCRIV, dest)
+
+    project = ScrivenerProject(str(dest))
+
+    assert project.config.assistant_folder == ".ai-assistant"
+    project.save_prompt("placeholder_test", "content")
+    assert (dest / ".ai-assistant" / "prompts" / "placeholder_test.md").exists()
+
+
+def test_empty_env_var_falls_back_to_default(monkeypatch, tmp_path):
+    """Empty SCRIVENER_ASSISTANT_FOLDER must use the default, not an empty path."""
+    monkeypatch.setenv("SCRIVENER_ASSISTANT_FOLDER", "")
+    dest = tmp_path / "empty_env.scriv"
+    shutil.copytree(SAMPLE_SCRIV, dest)
+
+    project = ScrivenerProject(str(dest))
+
+    assert project.config.assistant_folder == ".ai-assistant"
+
+
 def test_environment_config_injection(monkeypatch, tmp_path):
     """Test that default config picks up environment variables."""
     monkeypatch.setenv("SCRIVENER_ASSISTANT_FOLDER", ".my-env-assistant")
