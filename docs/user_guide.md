@@ -51,7 +51,8 @@ Everything lives inside `.ai-assistant/` within your `.scriv` bundle. Your manus
 │
 ├── reviews/                versioned style reviews (timestamped)
 ├── summaries/              scene summaries
-└── prompts/                reusable analysis prompts
+├── prompts/                reusable analysis prompts
+└── scene_registry.json     ← aggregated metadata for all scenes (auto-maintained)
 ```
 
 **Key principles:**
@@ -90,6 +91,10 @@ You can also call `save_story_state(0, ...)` with chapter=0 to initialize withou
 **Step 3 — Process existing scenes (optional)**
 
 Run `scene-chronicler` on any existing chapter to generate summaries, metadata, character sheets, and update world files — without the quality review loop.
+
+**Step 4 — Bootstrap the scene registry**
+
+Call `rebuild_scene_registry()` once to create `scene_registry.json` from all your existing scenes. After this, the registry is maintained automatically.
 
 From that point on, `review-agent` keeps state updated automatically after each new chapter.
 
@@ -203,6 +208,59 @@ It reads the document once and processes everything sequentially. Each step is c
 **`review-agent` vs `scene-chronicler`:**
 - `review-agent` is for the writing loop — fast, focused on quality feedback and keeping state current
 - `scene-chronicler` is for comprehensive data extraction — slower, extracts everything from any scene
+
+---
+
+## Scene Registry
+
+The scene registry is a single `scene_registry.json` file inside `.ai-assistant/` that aggregates metadata for every `Text`-type scene in your project. It gives you programmatic access to all scene data without having to parse individual files.
+
+### What it contains (per scene)
+
+| Field | Description |
+|---|---|
+| `uuid` | Scrivener UUID |
+| `title` | Scene title from the binder |
+| `binder_path` | Full path from root, e.g. `["Manuscript", "Chapter 3", "The Confrontation"]` |
+| `word_count` | Word count of the scene content |
+| `synopsis` | Scrivener synopsis text, or `null` |
+| `custom_metadata` | All custom metadata fields as `{"field": "value"}` |
+| `summary` | AI-generated summary text, or `null` |
+| `has_review` | `true` if a style review exists |
+| `review_updated_at` | ISO timestamp of the most recent review, or `null` |
+
+### Bootstrapping an existing project
+
+The registry is not created automatically when you load a project. Run the explicit rebuild once to create it from your existing scenes:
+
+```
+rebuild_scene_registry()
+```
+
+This returns a confirmation with scene count and file path. After that, the registry stays current automatically.
+
+### Auto-update triggers
+
+The registry is rebuilt automatically whenever you:
+- Call `update_metadata` (e.g. after a review or `scene-chronicler` run)
+- Call `save_summary`
+- Call `save_review`
+
+You do not need to rebuild manually after routine workflow steps.
+
+### Querying the registry
+
+**Full registry:**
+```
+get_scene_registry()
+```
+Returns the complete JSON with all scenes.
+
+**Single scene:**
+```
+get_scene_registry(uuid="YOUR-UUID-HERE")
+```
+Returns only that scene's entry — useful when you need to check one scene's current state without loading the whole file.
 
 ---
 
