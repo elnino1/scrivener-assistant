@@ -12,6 +12,7 @@ from scrivener_assistant.review_manager import ReviewManager
 from scrivener_assistant.world_manager import WorldManager
 from scrivener_assistant.state_manager import StateManager
 from scrivener_assistant.draft_manager import DraftManager
+from scrivener_assistant.scene_registry_manager import SceneRegistryManager
 from scrivener_assistant.config import ProjectConfig
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,7 @@ class ScrivenerProject:
         self.world_manager = WorldManager(self.path, self.config)
         self.state_manager = StateManager(self.path, self.config)
         self.draft_manager = DraftManager(self.path, self.config)
+        self.scene_registry = SceneRegistryManager(self.path, self.config)
 
         # Migrate characters/locations to world/ if still at old paths
         from scrivener_assistant.migration_tool import migrate_characters_locations
@@ -158,6 +160,7 @@ class ScrivenerProject:
         logger.debug(f"Updating metadata for document {uuid}: {field}={value}")
         self.metadata_manager.update_metadata(uuid, field, value)
         self.metadata_manager.save()
+        self._rebuild_registry()
         
     def save_prompt(self, name: str, content: str) -> str:
         """Saves a prompt."""
@@ -175,19 +178,19 @@ class ScrivenerProject:
     def save_summary(self, uuid: str, content: str) -> str:
         """Saves a summary definition."""
         path = self.summary_manager.save_summary(uuid, content)
+        self._rebuild_registry()
         return str(path)
-        
+
     def get_summary(self, uuid: str) -> Optional[str]:
         """Gets a summary."""
         return self.summary_manager.get_summary(uuid)
-        
+
     def save_review(self, uuid: str, content: str) -> str:
         """Saves a style review."""
         path = self.review_manager.save_review(uuid, content)
+        self._rebuild_registry()
         return str(path)
         
-    def get_review(self, uuid: str) -> Optional[str]:
-        """Gets a style review."""
     def get_review(self, uuid: str) -> Optional[str]:
         """Gets a style review."""
         return self.review_manager.get_review(uuid)
@@ -260,6 +263,21 @@ class ScrivenerProject:
 
     def get_draft(self, chapter: int) -> Optional[str]:
         return self.draft_manager.get_file(chapter, "draft")
+
+    def rebuild_scene_registry(self) -> Path:
+        """Explicitly rebuilds the scene registry and returns the file path."""
+        return self.scene_registry.rebuild(self)
+
+    def get_scene_registry(self) -> Optional[dict]:
+        """Returns the current scene registry as a dict, or None if absent."""
+        return self.scene_registry.get_registry()
+
+    def _rebuild_registry(self) -> None:
+        """Best-effort registry rebuild; logs on failure but never raises."""
+        try:
+            self.scene_registry.rebuild(self)
+        except Exception as e:
+            logger.warning(f"Scene registry rebuild failed (non-fatal): {e}")
 
     def __repr__(self):
         return f"<ScrivenerProject path='{self.path}'>"
