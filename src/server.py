@@ -662,6 +662,54 @@ After analysis, save each section using save_world(), save_character(), save_loc
 
 
 @mcp.tool()
+def list_native_statuses() -> str:
+    """
+    Returns all configured Scrivener status labels for the current project.
+
+    Use this before calling update_native_status to know which values are valid.
+
+    Returns:
+        Newline-separated list of status labels, or error message.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        statuses = current_project.list_native_statuses()
+        if not statuses:
+            return "No status labels configured in this project."
+        return "\n".join(statuses)
+    except Exception as e:
+        return f"Error reading native statuses: {e}"
+
+
+@mcp.tool()
+def update_native_status(uuid: str, status: str) -> str:
+    """
+    Sets the native Scrivener status for a document.
+
+    Uses Scrivener's built-in Status field (visible in the inspector and
+    outline view), not a custom metadata field. Call list_native_statuses()
+    first to see which labels are valid for this project.
+
+    Args:
+        uuid:   The UUID of the document.
+        status: The exact status label (e.g. "Draft - 1", "Done").
+
+    Returns:
+        Status message confirming the update, or error.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        current_project.set_native_status(uuid, status)
+        return f"Set native status '{status}' for {uuid}."
+    except ValueError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Error updating native status: {e}"
+
+
+@mcp.tool()
 def rebuild_scene_registry() -> str:
     """
     Rebuilds the scene_registry.json file from scratch.
