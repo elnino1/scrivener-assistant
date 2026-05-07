@@ -162,6 +162,32 @@ def test_get_scene_returns_none_for_unknown_uuid(project_with_registry):
     assert project_with_registry.scene_registry.get_scene("DOES-NOT-EXIST") is None
 
 
+def test_rebuild_scene_has_status_field(project_with_registry):
+    project_with_registry.scene_registry.rebuild(project_with_registry)
+    data = project_with_registry.scene_registry.get_registry()
+    for scene in data["scenes"]:
+        assert "status" in scene
+
+def test_rebuild_status_resolved_from_scrivener(project_with_registry):
+    project_with_registry.scene_registry.rebuild(project_with_registry)
+    data = project_with_registry.scene_registry.get_registry()
+    scenes_by_uuid = {s["uuid"]: s for s in data["scenes"]}
+    # Fixture: Scene (0A7EDD9F) has <StatusID>2</StatusID> → "First Draft"
+    assert scenes_by_uuid[SCENE_UUID]["status"] == "First Draft"
+
+def test_rebuild_status_null_when_unset(project_with_registry):
+    project_with_registry.scene_registry.rebuild(project_with_registry)
+    data = project_with_registry.scene_registry.get_registry()
+    scenes_by_uuid = {s["uuid"]: s for s in data["scenes"]}
+    # Copyright has no StatusID
+    assert scenes_by_uuid["21506607-96CA-4FB1-8B5F-A1859F4DCEDE"]["status"] is None
+
+def test_set_native_status_updates_registry(project_with_registry):
+    project_with_registry.set_native_status(SCENE_UUID, "Revised Draft")
+    data = project_with_registry.scene_registry.get_registry()
+    scenes_by_uuid = {s["uuid"]: s for s in data["scenes"]}
+    assert scenes_by_uuid[SCENE_UUID]["status"] == "Revised Draft"
+
 def test_get_scene_returns_none_when_registry_absent(temp_project):
     config = ProjectConfig()
     mgr = SceneRegistryManager(temp_project, config)
