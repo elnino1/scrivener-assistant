@@ -131,7 +131,10 @@ Generate a structured summary:
 Call `save_summary(<uuid>, <summary_text>)`.
 
 ### 3. Save metadata
-Extract and call `update_metadata()` for each applicable field:
+First, set the native Scrivener status:
+- Call `update_native_status(<uuid>, "Draft - 2 - Revue IA")` to mark the chapter as AI-reviewed.
+
+Then extract and call `update_metadata()` for each applicable field:
 
 1. `update_metadata(<uuid>, "Personnages présents", "...")` — physically present, comma-separated, exact spelling
 2. `update_metadata(<uuid>, "Personnages mentionnés", "...")` — mentioned but absent (only if applicable)

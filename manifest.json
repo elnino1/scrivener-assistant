@@ -58,7 +58,9 @@
     {"name": "get_draft", "description": "Retrieve the AI draft for a chapter"},
     {"name": "extract_bible_from_chapters", "description": "Aggregate content from multiple chapters for bible extraction"},
     {"name": "rebuild_scene_registry", "description": "Rebuild scene_registry.json from the full project state"},
-    {"name": "get_scene_registry", "description": "Return the scene registry as JSON (full or single scene by UUID)"}
+    {"name": "get_scene_registry", "description": "Return the scene registry as JSON (full or single scene by UUID)"},
+    {"name": "list_native_statuses", "description": "List all configured Scrivener status labels for the current project"},
+    {"name": "update_native_status", "description": "Set the native Scrivener status field for a document by UUID"}
   ],
   "user_config": {
     "project_path": {
