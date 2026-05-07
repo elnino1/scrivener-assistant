@@ -264,6 +264,20 @@ class ScrivenerProject:
     def get_draft(self, chapter: int) -> Optional[str]:
         return self.draft_manager.get_file(chapter, "draft")
 
+    def list_native_statuses(self) -> list[str]:
+        """Returns all configured Scrivener status labels."""
+        return self.metadata_manager.list_native_statuses()
+
+    def get_native_status(self, uuid: str) -> Optional[str]:
+        """Returns the native Scrivener status label for a scene, or None."""
+        return self.metadata_manager.get_native_status(uuid)
+
+    def set_native_status(self, uuid: str, status_name: str) -> None:
+        """Sets the native Scrivener status for a scene and rebuilds the registry."""
+        self.metadata_manager.set_native_status(uuid, status_name)
+        self.metadata_manager.save()
+        self._rebuild_registry()
+
     def rebuild_scene_registry(self) -> Path:
         """Explicitly rebuilds the scene registry and returns the file path."""
         return self.scene_registry.rebuild(self)

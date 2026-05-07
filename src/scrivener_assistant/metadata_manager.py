@@ -155,6 +155,60 @@ class MetadataManager:
 
         return result
 
+    def _build_status_maps(self) -> tuple[dict[str, str], dict[str, str]]:
+        """Returns (id_to_name, name_to_id) from <StatusSettings>, excluding -1."""
+        id_to_name: dict[str, str] = {}
+        settings = self.root.find("StatusSettings")
+        if settings is not None:
+            for status in settings.findall("StatusItems/Status"):
+                sid = status.get("ID", "")
+                name = status.text or ""
+                if sid != "-1" and name:
+                    id_to_name[sid] = name
+        name_to_id = {v: k for k, v in id_to_name.items()}
+        return id_to_name, name_to_id
+
+    def list_native_statuses(self) -> list[str]:
+        """Returns all configured status labels, excluding 'No Status'."""
+        id_to_name, _ = self._build_status_maps()
+        return list(id_to_name.values())
+
+    def get_native_status(self, uuid: str) -> Optional[str]:
+        """Returns the resolved status label for a scene; None if unset or unknown."""
+        item = self.root.find(f".//BinderItem[@UUID='{uuid}']")
+        if item is None:
+            return None
+        status_id_elem = item.find("MetaData/StatusID")
+        if status_id_elem is None:
+            return None
+        sid = (status_id_elem.text or "").strip()
+        if sid == "-1":
+            return None
+        id_to_name, _ = self._build_status_maps()
+        return id_to_name.get(sid)
+
+    def set_native_status(self, uuid: str, status_name: str) -> None:
+        """Sets <StatusID> for a scene. Raises ValueError if status_name not found."""
+        _, name_to_id = self._build_status_maps()
+        if status_name not in name_to_id:
+            available = ", ".join(sorted(name_to_id))
+            raise ValueError(
+                f"Status '{status_name}' not found in project. Available: {available}"
+            )
+        item = self.root.find(f".//BinderItem[@UUID='{uuid}']")
+        if item is None:
+            raise ValueError(f"BinderItem with UUID {uuid} not found.")
+
+        metadata = item.find("MetaData")
+        if metadata is None:
+            metadata = ET.SubElement(item, "MetaData")
+
+        status_id_elem = metadata.find("StatusID")
+        if status_id_elem is None:
+            status_id_elem = ET.SubElement(metadata, "StatusID")
+        status_id_elem.text = name_to_id[status_name]
+        logger.info(f"Set native status '{status_name}' (ID={name_to_id[status_name]}) for {uuid}")
+
     def update_metadata(self, uuid: str, field_name: str, value: str) -> None:
         """
         Updates (or creates) a metadata value for a specific Binder Item.

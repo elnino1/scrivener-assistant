@@ -40,7 +40,11 @@ Generate a structured summary:
 
 ## Étape 2 — Métadonnées
 
-Extract from the scene and call `update_metadata()` for each applicable field:
+First, set the native Scrivener status:
+- Call `list_native_statuses()` to see valid labels for this project.
+- Call `update_native_status(<uuid>, <label>)` to set the appropriate status.
+
+Then extract and call `update_metadata()` for each applicable field:
 
 1. `update_metadata(<uuid>, "Personnages présents", "...")` — physically present, comma-separated, exact spelling from character sheets
 2. `update_metadata(<uuid>, "Personnages mentionnés", "...")` — mentioned but absent (skip if none)

@@ -80,6 +80,11 @@ class SceneRegistryManager:
             word_count = 0
 
         try:
+            status = project.metadata_manager.get_native_status(uuid)
+        except Exception:
+            status = None
+
+        try:
             synopsis = project.read_synopsis(uuid) or None
         except Exception:
             synopsis = None
@@ -110,6 +115,7 @@ class SceneRegistryManager:
             "title": node.title,
             "type": node.type,
             "binder_path": binder_path,
+            "status": status,
             "word_count": word_count,
             "synopsis": synopsis,
             "custom_metadata": custom_metadata,
