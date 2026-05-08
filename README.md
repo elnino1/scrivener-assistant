@@ -12,9 +12,9 @@ Read the **[User Guide](docs/user_guide.md)** to set up the writing workflow (br
 
 **Reading your project**
 - Load any `.scriv` project (Scrivener 3 format)
-- Navigate the full binder hierarchy
+- Navigate the manuscript binder (DraftFolder only — non-writing sections excluded)
 - Read document text (auto-converted from RTF), inspector notes, and index card synopses
-- Read and write custom metadata fields
+- Read and write custom metadata fields and the native Scrivener status
 
 **Writing workflow (Claude Code agents)**
 - `brainstorm-agent` — plan next chapters through dialogue, with continuity guardrails
@@ -28,6 +28,7 @@ Read the **[User Guide](docs/user_guide.md)** to set up the writing workflow (br
 - `drafts/` — brainstorm notes, scene beats, AI-generated prose per chapter
 - Character and location profile database
 - Versioned review history (timestamped, browsable)
+- `scene_registry.json` — aggregated per-scene metadata (word count, synopsis, status, summary, review flag), auto-updated on every write
 
 **Safety**
 - Read-only access to Scrivener content — your manuscript is never modified
@@ -139,13 +140,14 @@ Run `scrivener-cli --help` for a full list of commands.
 
 ## MCP Tools Reference
 
-34 tools are exposed. Key ones:
+38 tools are exposed. Key ones:
 
 | Category | Tools |
 |----------|-------|
 | **Project** | `set_project_path`, `get_current_project`, `get_binder_structure` |
 | **Reading** | `read_document`, `read_document_notes`, `read_document_synopsis`, `prepare_chapter_analysis` |
-| **Metadata** | `update_metadata` |
+| **Metadata** | `update_metadata`, `list_native_statuses`, `update_native_status` |
+| **Scene registry** | `rebuild_scene_registry`, `get_scene_registry` |
 | **World** | `get_world`, `save_world` |
 | **State** | `get_story_state`, `save_story_state`, `list_story_states` |
 | **Drafts** | `save_brainstorm`, `save_beats`, `save_draft`, `get_draft` |

@@ -12,6 +12,8 @@ SAMPLE_SCRIV = FIXTURES_DIR / "sample.scriv"
 
 # UUID of the single "Scene" Text node under the DraftFolder/Chapter in the fixture
 SCENE_UUID = "0A7EDD9F-9DE0-4CC9-9AC1-EE0E3769B6A8"
+SCENE2_UUID = "A2D5C3F1-E047-4B9A-A123-0000FFFFFFFF"   # Scene 2 — no StatusID
+FRONT_MATTER_UUID = "21506607-96CA-4FB1-8B5F-A1859F4DCEDE"  # Copyright — outside DraftFolder
 
 
 @pytest.fixture
@@ -106,14 +108,14 @@ def test_rebuild_word_count_is_int(project_with_registry):
 
 
 def test_rebuild_synopsis_from_fixture(project_with_registry):
-    # Fixture has synopsis.txt for 684ADA52-4D45-48D2-B03D-5ECB784963EE (Title Page)
+    # Fixture has synopsis.txt for SCENE_UUID (Scene in DraftFolder)
     project_with_registry.scene_registry.rebuild(project_with_registry)
     data = project_with_registry.scene_registry.get_registry()
     scenes_by_uuid = {s["uuid"]: s for s in data["scenes"]}
-    title_page = scenes_by_uuid.get("684ADA52-4D45-48D2-B03D-5ECB784963EE")
-    assert title_page is not None
-    assert title_page["synopsis"] is not None
-    assert len(title_page["synopsis"]) > 0
+    scene = scenes_by_uuid.get(SCENE_UUID)
+    assert scene is not None
+    assert scene["synopsis"] is not None
+    assert len(scene["synopsis"]) > 0
 
 
 def test_rebuild_no_summary_returns_null(project_with_registry):
@@ -179,8 +181,8 @@ def test_rebuild_status_null_when_unset(project_with_registry):
     project_with_registry.scene_registry.rebuild(project_with_registry)
     data = project_with_registry.scene_registry.get_registry()
     scenes_by_uuid = {s["uuid"]: s for s in data["scenes"]}
-    # Copyright has no StatusID
-    assert scenes_by_uuid["21506607-96CA-4FB1-8B5F-A1859F4DCEDE"]["status"] is None
+    # Scene 2 has no StatusID in the fixture
+    assert scenes_by_uuid[SCENE2_UUID]["status"] is None
 
 def test_set_native_status_updates_registry(project_with_registry):
     project_with_registry.set_native_status(SCENE_UUID, "Revised Draft")
@@ -192,3 +194,23 @@ def test_get_scene_returns_none_when_registry_absent(temp_project):
     config = ProjectConfig()
     mgr = SceneRegistryManager(temp_project, config)
     assert mgr.get_scene(SCENE_UUID) is None
+
+
+# --- DraftFolder scoping ---
+
+def test_rebuild_excludes_non_draft_text_nodes(project_with_registry):
+    project_with_registry.scene_registry.rebuild(project_with_registry)
+    data = project_with_registry.scene_registry.get_registry()
+    uuids = {s["uuid"] for s in data["scenes"]}
+    assert FRONT_MATTER_UUID not in uuids
+    # Template Sheets node also outside DraftFolder
+    assert "BE948F87-BDA3-4551-8E08-AC248FE89301" not in uuids
+
+
+def test_rebuild_only_includes_draft_folder_scenes(project_with_registry):
+    project_with_registry.scene_registry.rebuild(project_with_registry)
+    data = project_with_registry.scene_registry.get_registry()
+    uuids = {s["uuid"] for s in data["scenes"]}
+    assert SCENE_UUID in uuids
+    assert SCENE2_UUID in uuids
+    assert len(uuids) == 2

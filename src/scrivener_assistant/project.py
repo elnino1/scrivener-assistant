@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Optional, Dict, List
 import logging
 from scrivener_assistant.base_manager import BaseSceneDataManager
-from scrivener_assistant.binder_parser import parse_scrivx, get_binder_map
+from scrivener_assistant.binder_parser import parse_scrivx, get_binder_map, get_draft_root, BinderNode
 from scrivener_assistant.content_parser import get_content_path, get_notes_path, get_synopsis_path
 from scrivener_assistant.rtf_converter import convert_rtf_to_text
 from scrivener_assistant.metadata_manager import MetadataManager
@@ -32,6 +32,7 @@ class ScrivenerProject:
         logger.debug("Parsing binder structure")
         self.nodes = parse_scrivx(self.scrivx_file)
         self.binder_map = get_binder_map(self.nodes)
+        self.draft_root: Optional[BinderNode] = get_draft_root(self.nodes)
         
         # 2. Inject config and binder map into managers
         logger.debug("Initializing managers")
@@ -80,10 +81,11 @@ class ScrivenerProject:
         logger.debug(f"Found .scrivx file: {self.scrivx_file}")
         
     def get_structure(self) -> dict:
-        """
-        Parses and returns the binder structure as a dictionary.
-        """
-        return {"binder": [node.to_dict() for node in self.nodes]}
+        """Returns the binder structure scoped to the DraftFolder subtree."""
+        if self.draft_root is None:
+            logger.warning("No DraftFolder found — returning full binder")
+            return {"binder": [node.to_dict() for node in self.nodes]}
+        return {"binder": [self.draft_root.to_dict()]}
         
     def get_document_path(self, uuid: str) -> Optional[Path]:
         """

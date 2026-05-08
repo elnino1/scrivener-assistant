@@ -84,6 +84,24 @@ def parse_scrivx(scrivx_path: Path) -> List[BinderNode]:
     except ET.ParseError as e:
         raise ValueError(f"Failed to parse .scrivx file: {e}")
 
+def get_draft_root(nodes: List[BinderNode]) -> Optional[BinderNode]:
+    """Return the DraftFolder node from the top-level binder list; None if absent."""
+    for node in nodes:
+        if node.type == "DraftFolder":
+            return node
+    return None
+
+
+def get_all_text_descendants(node: BinderNode) -> List[BinderNode]:
+    """Return all Text-type descendant nodes (depth-first), skipping non-Text types."""
+    result: List[BinderNode] = []
+    for child in node.children:
+        if child.type == "Text":
+            result.append(child)
+        result.extend(get_all_text_descendants(child))
+    return result
+
+
 def get_binder_map(nodes: List[BinderNode]) -> dict[str, BinderNode]:
     """Flattens the binder tree into a UUID -> BinderNode map."""
     binder_map = {}

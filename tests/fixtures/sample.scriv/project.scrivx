@@ -33,6 +33,15 @@
                                 <TextSelection>0,0</TextSelection>
                             </TextSettings>
                         </BinderItem>
+                        <BinderItem UUID="A2D5C3F1-E047-4B9A-A123-0000FFFFFFFF" Type="Text" Created="2026-01-20 23:23:44 +0100" Modified="2026-01-20 23:23:44 +0100">
+                            <Title>Scene 2</Title>
+                            <MetaData>
+                                <IncludeInCompile>Yes</IncludeInCompile>
+                            </MetaData>
+                            <TextSettings>
+                                <TextSelection>0,0</TextSelection>
+                            </TextSettings>
+                        </BinderItem>
                     </Children>
                 </BinderItem>
             </Children>
