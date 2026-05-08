@@ -20,6 +20,19 @@ def test_get_binder_structure():
     assert "binder" in data
     assert len(data["binder"]) > 0
 
+def test_get_binder_structure_returns_only_draft_tree():
+    import json
+    set_project_path(str(SAMPLE_SCRIV))
+    structure_json = get_binder_structure()
+    data = json.loads(structure_json)
+    assert len(data["binder"]) == 1
+    assert data["binder"][0]["type"] == "DraftFolder"
+    assert "Characters" not in structure_json
+    assert "Front Matter" not in structure_json
+    assert "Template Sheets" not in structure_json
+    assert "Trash" not in structure_json
+
+
 def test_get_binder_structure_no_project():
     # Reset global state (hack for testing module level global)
     import server

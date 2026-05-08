@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 from scrivener_assistant.config import ProjectConfig
+from scrivener_assistant.binder_parser import get_all_text_descendants
 
 if TYPE_CHECKING:
     from scrivener_assistant.project import ScrivenerProject
@@ -26,12 +27,16 @@ class SceneRegistryManager:
         self.registry_path = project_path / assistant_folder / config.scene_registry_filename
 
     def rebuild(self, project: "ScrivenerProject") -> Path:
-        """Collect all Text-node data and write the registry atomically."""
+        """Collect Text-node data from the DraftFolder and write the registry atomically."""
+        if project.draft_root is None:
+            logger.warning("No DraftFolder found — falling back to all Text nodes in binder")
+            text_nodes = [n for n in project.binder_map.values() if n.type == "Text"]
+        else:
+            text_nodes = get_all_text_descendants(project.draft_root)
+
         scenes = []
-        for uuid, node in project.binder_map.items():
-            if node.type != "Text":
-                continue
-            scenes.append(self._collect_scene(project, uuid, node))
+        for node in text_nodes:
+            scenes.append(self._collect_scene(project, node.uuid, node))
 
         project_name = project.path.name.removesuffix(".scriv")
         registry = {
