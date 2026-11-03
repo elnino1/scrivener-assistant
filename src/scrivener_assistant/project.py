@@ -17,6 +17,31 @@ from scrivener_assistant.config import ProjectConfig
 
 logger = logging.getLogger(__name__)
 
+
+def resolve_project_path(project_path: str) -> Path:
+    """
+    Resolve a user-supplied path to a .scriv bundle.
+
+    On macOS a .scriv bundle is a package, so folder pickers (e.g. the Claude
+    Desktop Extension config) only let users select its parent directory.
+    If the path is a plain directory containing exactly one .scriv bundle,
+    that bundle is returned. Otherwise the path is returned unchanged and
+    validation reports the problem.
+    """
+    path = Path(project_path).expanduser().resolve()
+    if path.is_dir() and not path.name.endswith(".scriv"):
+        candidates = sorted(p for p in path.glob("*.scriv") if p.is_dir())
+        if len(candidates) == 1:
+            logger.info(f"Found Scrivener project in {path}: {candidates[0].name}")
+            return candidates[0]
+        if len(candidates) > 1:
+            names = ", ".join(c.name for c in candidates)
+            raise ValueError(
+                f"Multiple .scriv projects found in {path} ({names}). "
+                "Specify the full path to the one you want."
+            )
+    return path
+
 class ScrivenerProject:
     """
     Represents a Scrivener project directory.
@@ -24,7 +49,7 @@ class ScrivenerProject:
     def __init__(self, project_path: str, config: Optional[ProjectConfig] = None):
         logger.debug(f"Initializing ScrivenerProject for path: {project_path}")
         
-        self.path = Path(project_path).resolve()
+        self.path = resolve_project_path(project_path)
         self.config = config or ProjectConfig.default()
         self._validate_path()
         

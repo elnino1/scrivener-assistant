@@ -24,7 +24,7 @@ def set_project_path(path: str) -> str:
     Sets the active Scrivener project.
     
     Args:
-        path: Absolute path to the .scriv directory.
+        path: Absolute path to the .scriv directory, or to a folder containing a single .scriv project.
     
     Returns:
         Status message confirming the project loaded or error.
