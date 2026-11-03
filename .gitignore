@@ -26,6 +26,7 @@ wheels/
 *.egg
 node_modules/
 *.mcpb
+releases/
 
 # Virtual Environments
 .venv
