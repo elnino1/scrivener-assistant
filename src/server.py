@@ -798,7 +798,9 @@ Examples:
     # Fall back to env var injected by the Desktop Extension manifest
     if not args.project_path:
         env_path = os.environ.get("SCRIVENER_PROJECT_PATH", "").strip().strip("'\"")
-        if env_path:
+        # Claude Desktop passes "${user_config.project_path}" literally when the
+        # optional field is left blank — treat it as "not set".
+        if env_path and not env_path.startswith("${"):
             args.project_path = env_path
             
     if args.storage_path:
@@ -825,8 +827,10 @@ Examples:
             current_project = ScrivenerProject(args.project_path)
             logger.info(f"Successfully loaded project: {current_project.path}")
         except Exception as e:
+            # Keep the server alive: the project can still be loaded later
+            # via the set_project_path tool.
             logger.error(f"Failed to load initial project: {e}")
-            sys.exit(1)
+            logger.info("Server will start without a project. Use set_project_path tool to load one.")
     else:
         logger.info("No initial project specified. Use set_project_path tool to load a project.")
 
