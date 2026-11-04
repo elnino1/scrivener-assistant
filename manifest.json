@@ -66,7 +66,7 @@
     "project_path": {
       "type": "directory",
       "title": "Scrivener Project Path",
-      "description": "Path to your .scriv project to load at startup. Leave empty to set it later using the set_project_path tool.",
+      "description": "Folder containing your .scriv project (or the .scriv itself) to load at startup. If the folder holds a single .scriv project it is picked automatically. Leave empty to set it later using the set_project_path tool.",
       "required": false
     },
     "storage_path": {
