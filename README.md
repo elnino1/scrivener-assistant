@@ -20,13 +20,20 @@ Read the **[User Guide](docs/user_guide.md)** to set up the writing workflow (br
 - `brainstorm-agent` — plan next chapters through dialogue, with continuity guardrails
 - `draft-agent` — generate scene beats then prose, fill TODO markers in existing text
 - `review-agent` — 5-point quality review, score, summary, metadata extraction, state update
-- `voice-bootstrap` — one-time author-voice baseline, guide and exemplars from text you wrote
 - `scene-chronicler` — full enrichment pipeline for any existing scene (character sheets, location sheets, world file updates)
+
+**Author voice** — drafts that sound like you, and get better as you retouch them
+- `voice-bootstrap` prompt — one-time setup from chapters you wrote yourself: a measured baseline, a voice guide (characteristic moves, numeric targets, banned AI-isms) and exemplar passages. Available as an **MCP prompt**, so it works in Claude Desktop (prompts "+" menu) as well as in Claude Code.
+- Deterministic French style metrics (`voice_stats`, `compare_voice_stats`): sentence and paragraph length, dialogue share, `on` and `-ment` adverb frequency, sentence-opening variety, tense mix.
+- Retouch measurement (`compute_rewrite_diff`): compares the AI draft with your retouched text in Scrivener and reports the edit rate and every before → after edit. `[AUTEUR: …]` placeholders you fill in are not counted as edits.
+- Chapters are resolved by number or title from the scene registry (`resolve_chapter_scenes`).
+- Learning loop (edit classification, rules promoted after several chapters, voice judge, predicted edits): planned — see [TODOS.md](TODOS.md) and the [design](docs/superpowers/specs/2026-11-10-author-voice-design.md).
 
 **World & story data**
 - `world/` — style guide, universe bible, structure, plan, timeline, relations (human-editable)
 - `state/` — versioned per-chapter snapshots (situation, characters, knowledge, inventory)
 - `drafts/` — brainstorm notes, scene beats, AI-generated prose per chapter
+- `voice/` — voice guide, rule hypotheses, baseline metrics, exemplars, per-chapter edit diffs, progress ledger
 - Character and location profile database
 - Versioned review history (timestamped, browsable)
 - `scene_registry.json` — aggregated per-scene metadata (word count, synopsis, status, summary, review flag), auto-updated on every write
@@ -38,17 +45,17 @@ Read the **[User Guide](docs/user_guide.md)** to set up the writing workflow (br
 ## Installation
 
 ### Option A: Desktop Extension (Recommended)
-No Python installation required. Claude Desktop uses [UV](https://github.com/astral-sh/uv) to manage the Python environment automatically.
+No Python installation required: the extension runs the server with [uv](https://github.com/astral-sh/uv), which installs Python and the dependencies automatically. uv itself must be installed first (`brew install uv` on macOS) — without it the extension does not start.
 
 1. Download the latest `scrivener-assistant.mcpb` from the [Releases](https://github.com/elnino1/scrivener-assistant/releases) page.
 2. Double-click the `.mcpb` file — Claude Desktop will install it.
 3. Optionally set your project path in the extension settings UI.
 
-To build the `.mcpb` file yourself:
+To build the `.mcpb` file yourself (files listed in `.mcpbignore` are left out):
 ```bash
-npm install -g @anthropic-ai/mcpb
-mcpb pack .
+npx -y @anthropic-ai/mcpb pack . scrivener-assistant-dev.mcpb
 ```
+A local build keeps the `0.0.0-dev` version: uninstall the previous extension in Claude Desktop before installing it.
 
 ### Option B: Manual Installation (Advanced)
 
@@ -160,9 +167,13 @@ Run `scrivener-cli --help` for a full list of commands.
 | **Voice** | `resolve_chapter_scenes`, `voice_stats`, `compare_voice_stats`, `compute_voice_baseline`, `compute_rewrite_diff`, `get_voice`, `save_voice`, `save_voice_exemplar`, `list_voice_exemplars`, `get_voice_exemplar` |
 | **Extraction** | `extract_bible_from_chapters` |
 
+MCP prompts: `voice-bootstrap` (optional `corpus` argument). See [docs/REFERENCE.md](docs/REFERENCE.md).
+
 ## Development
 
 ```bash
-pip install ".[dev]"
-pytest
+uv run --extra dev pytest
+# or: pip install ".[dev]" && pytest
 ```
+
+Roadmap: [TODOS.md](TODOS.md).
