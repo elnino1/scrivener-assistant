@@ -8,7 +8,11 @@ __pycache__/
 *.pyo
 .pytest_cache/
 .ruff_cache/
-node¨_modules/
+node_modules/
+package.json
+package-lock.json
+.devcontainer/
+.bmad-*/
 
 # CI/CD
 .github/
@@ -16,6 +20,13 @@ node¨_modules/
 .claude/
 .cursor/
 .gemini/
+
+# Build outputs (never pack a bundle into a bundle)
+releases/
+dist/
+build/
+*.mcpb
+*.egg-info/
 
 # Misc
 *.log
