@@ -13,6 +13,7 @@ from mcp.server.fastmcp import FastMCP
 from scrivener_assistant import ScrivenerProject
 from scrivener_assistant import voice_stats as _voice_stats
 from scrivener_assistant import rewrite_diff as _rewrite_diff
+from scrivener_assistant.agent_prompts import load_agent_prompt
 
 # Initialize FastMCP Server
 mcp = FastMCP("Scrivener assistant")
@@ -1037,6 +1038,26 @@ def get_voice_exemplar(slug: str) -> str:
     if content is None:
         return f"No voice exemplar '{slug}' found."
     return content
+
+
+# --- Prompts ---
+
+@mcp.prompt(
+    name="voice-bootstrap",
+    description=(
+        "One-time author-voice bootstrap: confirms the corpus, computes the numeric "
+        "baseline, writes voice/guide.md, exemplars, hypotheses.md and ledger.md."
+    ),
+)
+def voice_bootstrap_prompt(corpus: str = "") -> str:
+    """Instructions for the author-voice bootstrap workflow (no project needed to render)."""
+    text = load_agent_prompt("voice_bootstrap")
+    if corpus.strip():
+        text += (
+            "\n\nCorpus précisé par l'auteur (il remplace le corpus par défaut de "
+            f"l'étape 1) : {corpus.strip()}\n"
+        )
+    return text
 
 
 def main():

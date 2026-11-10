@@ -224,7 +224,7 @@ It reads the document once and processes everything sequentially. Each step is c
 
 Measure how close drafts are to your own writing, and how much you change them.
 
-1. **Once:** ask Claude to run `voice-bootstrap`. It confirms the corpus with you (default: chapter "Celestia" + first 5 sections of "La découverte de Vee"), computes your numeric baseline, and writes `voice/guide.md`, exemplars and empty `hypotheses.md` / `ledger.md`. Read the guide and correct it; `world/style.md` stays yours and is never modified.
+1. **Once:** run `voice-bootstrap`. In **Claude Desktop**, pick the `voice-bootstrap` prompt from the "+" (prompts) menu of the Scrivener Assistant extension (optional `corpus` field to override the default corpus). In **Claude Code**, use the `voice-bootstrap` subagent or the prompt from the `/` menu. The workflow confirms the corpus with you (default: chapter "Celestia" + first 5 sections of "La découverte de Vee"), computes your numeric baseline, and writes `voice/guide.md`, exemplars and empty `hypotheses.md` / `ledger.md`. Read the guide and correct it; `world/style.md` stays yours and is never modified.
 2. **After retouching a chapter in Scrivener:** ask Claude to run `compute_rewrite_diff` for that chapter (number or title). It compares `drafts/chapter-NN/draft.md` (or `draft.sent.md` if you have a frozen copy) with your Scrivener text and reports the **edit rate** (share of the draft you changed), sentence counts, and the list of changed sentences. Placeholders `[AUTEUR: …]` in a draft are counted as fill-ins, not edits. Results are saved in `voice/edits/chapter-NN.json`.
 3. `compare_voice_stats` checks any text against your baseline (within tolerance or not, per metric).
 

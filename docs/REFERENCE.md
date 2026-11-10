@@ -391,6 +391,14 @@ Author-voice measurement (phase 1). Files live in `voice/`; `world/style.md` is 
 | `rebuild_scene_registry` | `()` | Force a full rebuild of `scene_registry.json` from the current project state. Use once to bootstrap, or anytime to force a refresh. |
 | `get_scene_registry` | `(uuid="")` | Return the full registry JSON, or a single scene entry when `uuid` is provided. |
 
+### MCP prompts
+
+Prompts are exposed through the MCP prompts capability (Claude Desktop: "+" menu of the extension; Claude Code: `/` menu). They render without a loaded project. Their text lives in `src/scrivener_assistant/agent_prompts/` and is shared with the matching Claude Code subagent.
+
+| Prompt | Arguments | Purpose |
+|---|---|---|
+| `voice-bootstrap` | `corpus` (optional string) | One-time author-voice bootstrap (see `voice-bootstrap` in section 8). If `corpus` is given, it overrides the default corpus of step 1. |
+
 ---
 
 ## 8. AI Agents
@@ -413,7 +421,7 @@ Reads brainstorm notes, world context, and state. Phase 1: writes 5–8 scene be
 
 **When:** Once, to seed the author-voice files from text the author wrote entirely.
 
-Confirms the corpus (default: chapter "Celestia" + first 5 sections of "La découverte de Vee"), builds `voice/baseline.json`, then writes `voice/guide.md` (moves with quotes, numeric targets, narrow banned list, judge dimensions), 10–15 exemplars, and empty `hypotheses.md` / `ledger.md`. Never modifies `world/style.md`.
+Confirms the corpus (default: chapter "Celestia" + first 5 sections of "La découverte de Vee"), builds `voice/baseline.json`, then writes `voice/guide.md` (moves with quotes, numeric targets, narrow banned list, judge dimensions), 10–15 exemplars, and empty `hypotheses.md` / `ledger.md`. Never modifies `world/style.md`. Its instructions live in `src/scrivener_assistant/agent_prompts/voice_bootstrap.md`; the subagent reads that file, and the same text is exposed as the `voice-bootstrap` MCP prompt for Claude Desktop.
 
 ### `review-agent`
 

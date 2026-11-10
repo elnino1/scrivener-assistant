@@ -186,6 +186,14 @@ Tracked per chapter in `ledger.md`, with a target trend rather than fixed thresh
 
 Phase 1 alone already gives a baseline and lets the author measure the current drafts.
 
+## Agent instructions as MCP prompts
+
+Agent instructions live in `src/scrivener_assistant/agent_prompts/<name>.md` (single source of
+truth, shipped in the package and the `.mcpb` bundle) and are exposed as MCP prompts
+(`@mcp.prompt` in `src/server.py`, loaded via `load_agent_prompt`) so they work in Claude Desktop,
+where `.claude/agents/` is unavailable. The Claude Code subagent file only points to that file.
+`voice-bootstrap` is done; the future `voice-learner` and `voice-judge` follow the same pattern.
+
 ## Open questions
 
 - ~~Mapping chapter number → Scrivener UUIDs~~ — Resolved: derived from the scene registry (chapter = Nth top-level DraftFolder child holding text, or matched by title; see `resolve_chapter_scenes`). `compute_rewrite_diff` takes only `chapter`.
