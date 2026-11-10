@@ -43,6 +43,14 @@ Everything lives inside `.ai-assistant/` within your `.scriv` bundle. Your manus
 │   │   └── inventory.md    object locations and ownership
 │   └── chapter-05/         archived snapshot (one per completed chapter)
 │
+├── voice/                  ← author voice measurement (system-maintained)
+│   ├── guide.md            moves, numeric targets, banned list, judge dimensions
+│   ├── hypotheses.md       candidate rules
+│   ├── ledger.md           one row per chapter: edit rate
+│   ├── baseline.json       voice stats of your own text (targets + tolerances)
+│   ├── exemplars/          short passages written by you, by kind
+│   └── edits/chapter-NN.json   draft vs final comparison per chapter
+│
 ├── drafts/                 ← working files per chapter (scratch space)
 │   └── chapter-06/
 │       ├── brainstorm.md   notes from the brainstorm session
@@ -203,11 +211,24 @@ It reads the document once and processes everything sequentially. Each step is c
 | `brainstorm-agent` | Before writing a chapter | Dialogue to plan direction, continuity checks, saves brainstorm notes |
 | `draft-agent` | After brainstorm | Beats → prose → TODO filling, saves to `drafts/` |
 | `review-agent` | After human rewrite | 5-point review, score, summary, metadata, state update, plan update |
+| `voice-bootstrap` | Once, before using voice measurement | Builds your voice baseline, guide, exemplars from text you wrote |
 | `scene-chronicler` | Bootstrap or deep enrichment | Full 6-step pipeline: summary, metadata, character sheets, location sheets, style review, world files |
 
 **`review-agent` vs `scene-chronicler`:**
 - `review-agent` is for the writing loop — fast, focused on quality feedback and keeping state current
 - `scene-chronicler` is for comprehensive data extraction — slower, extracts everything from any scene
+
+---
+
+## Author voice (phase 1)
+
+Measure how close drafts are to your own writing, and how much you change them.
+
+1. **Once:** ask Claude to run `voice-bootstrap`. It confirms the corpus with you (default: chapter "Celestia" + first 5 sections of "La découverte de Vee"), computes your numeric baseline, and writes `voice/guide.md`, exemplars and empty `hypotheses.md` / `ledger.md`. Read the guide and correct it; `world/style.md` stays yours and is never modified.
+2. **After retouching a chapter in Scrivener:** ask Claude to run `compute_rewrite_diff` for that chapter (number or title). It compares `drafts/chapter-NN/draft.md` (or `draft.sent.md` if you have a frozen copy) with your Scrivener text and reports the **edit rate** (share of the draft you changed), sentence counts, and the list of changed sentences. Placeholders `[AUTEUR: …]` in a draft are counted as fill-ins, not edits. Results are saved in `voice/edits/chapter-NN.json`.
+3. `compare_voice_stats` checks any text against your baseline (within tolerance or not, per metric).
+
+Classifying your edits into rules (phase 2) and the judge loop (phase 3) come later.
 
 ---
 

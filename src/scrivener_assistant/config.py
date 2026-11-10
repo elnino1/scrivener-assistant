@@ -32,6 +32,7 @@ class ProjectConfig:
     world_subfolder: str = "world"
     state_subfolder: str = "state"
     drafts_subfolder: str = "drafts"
+    voice_subfolder: str = "voice"
     scene_registry_filename: str = "scene_registry.json"
     max_backups: int = 5
     

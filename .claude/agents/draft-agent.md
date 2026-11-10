@@ -53,8 +53,6 @@ Style rules (from `world/style.md` — always re-read before writing):
 
 After writing, call `save_draft(<chapter>, <prose>)`.
 
-After writing, call `save_draft(<chapter>, <prose>)`.
-
 Then tell the user:
 "Le brouillon est sauvegardé dans `drafts/chapter-NN/draft.md`. Copie-le dans Scrivener et réécris à ta guise. Quand tu es satisfait de ta version, lance review-agent avec l'UUID Scrivener du chapitre."
 

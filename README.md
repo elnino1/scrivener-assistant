@@ -20,6 +20,7 @@ Read the **[User Guide](docs/user_guide.md)** to set up the writing workflow (br
 - `brainstorm-agent` — plan next chapters through dialogue, with continuity guardrails
 - `draft-agent` — generate scene beats then prose, fill TODO markers in existing text
 - `review-agent` — 5-point quality review, score, summary, metadata extraction, state update
+- `voice-bootstrap` — one-time author-voice baseline, guide and exemplars from text you wrote
 - `scene-chronicler` — full enrichment pipeline for any existing scene (character sheets, location sheets, world file updates)
 
 **World & story data**
@@ -140,7 +141,7 @@ Run `scrivener-cli --help` for a full list of commands.
 
 ## MCP Tools Reference
 
-38 tools are exposed. Key ones:
+48 tools are exposed. Key ones:
 
 | Category | Tools |
 |----------|-------|
@@ -156,6 +157,7 @@ Run `scrivener-cli --help` for a full list of commands.
 | **Characters** | `save_character`, `get_character`, `list_characters` |
 | **Locations** | `save_location`, `get_location`, `list_locations` |
 | **Prompts** | `save_prompt`, `get_prompt`, `list_prompts` |
+| **Voice** | `resolve_chapter_scenes`, `voice_stats`, `compare_voice_stats`, `compute_voice_baseline`, `compute_rewrite_diff`, `get_voice`, `save_voice`, `save_voice_exemplar`, `list_voice_exemplars`, `get_voice_exemplar` |
 | **Extraction** | `extract_bible_from_chapters` |
 
 ## Development

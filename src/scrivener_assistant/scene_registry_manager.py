@@ -2,6 +2,7 @@ import json
 import os
 import datetime
 import logging
+import unicodedata
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
@@ -12,6 +13,12 @@ if TYPE_CHECKING:
     from scrivener_assistant.project import ScrivenerProject
 
 logger = logging.getLogger(__name__)
+
+
+def _fold(text: str) -> str:
+    """Case- and accent-insensitive form of a title."""
+    decomposed = unicodedata.normalize("NFKD", text.strip())
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).casefold()
 
 
 class SceneRegistryManager:
@@ -73,6 +80,60 @@ class SceneRegistryManager:
             if scene.get("uuid") == uuid:
                 return scene
         return None
+
+    def resolve_chapter(self, chapter: str, project: "ScrivenerProject") -> dict:
+        """
+        Resolve a chapter (1-based number such as "3", or a title) to its scenes.
+
+        A chapter is a top-level child of the DraftFolder (binder_path[1]) that holds at
+        least one Text document; chapters are numbered in registry (binder) order.
+        If the chapter node is itself a Text document, its only scene is that document.
+        Titles match case/accent-insensitively: exact match first, then unique prefix.
+        Rebuilds the registry when it is missing.
+
+        Returns {number, title, scenes: [{uuid, title, word_count}]}; raises ValueError
+        when the chapter is not found or the title is ambiguous.
+        """
+        registry = self.get_registry()
+        if registry is None:
+            self.rebuild(project)
+            registry = self.get_registry()
+        chapters = []  # consecutive runs of the same binder_path[1]
+        for scene in (registry or {}).get("scenes", []):
+            path = scene.get("binder_path") or []
+            if len(path) < 2:
+                continue
+            title = path[1]
+            if not chapters or chapters[-1]["title"] != title:
+                chapters.append({"title": title, "scenes": []})
+            chapters[-1]["scenes"].append({
+                "uuid": scene["uuid"],
+                "title": scene.get("title", ""),
+                "word_count": scene.get("word_count", 0),
+            })
+        if not chapters:
+            raise ValueError("No chapters found in the scene registry (is the DraftFolder empty?).")
+
+        query = str(chapter).strip()
+        if query.isdigit():
+            number = int(query)
+            if not 1 <= number <= len(chapters):
+                raise ValueError(f"Chapter {number} not found: the project has {len(chapters)} chapters.")
+            index = number - 1
+        else:
+            folded = _fold(query)
+            if not folded:
+                raise ValueError("Empty chapter reference.")
+            exact = [i for i, c in enumerate(chapters) if _fold(c["title"]) == folded]
+            matches = exact or [i for i, c in enumerate(chapters) if _fold(c["title"]).startswith(folded)]
+            if not matches:
+                raise ValueError(f"Chapter '{chapter}' not found.")
+            if len(matches) > 1:
+                options = ", ".join(f"{i + 1}. {chapters[i]['title']}" for i in matches)
+                raise ValueError(f"Chapter '{chapter}' is ambiguous: {options}. Use the chapter number.")
+            index = matches[0]
+        found = chapters[index]
+        return {"number": index + 1, "title": found["title"], "scenes": found["scenes"]}
 
     def _collect_scene(self, project: "ScrivenerProject", uuid: str, node) -> dict:
         """Collect all data for a single scene node."""

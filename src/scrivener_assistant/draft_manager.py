@@ -5,7 +5,7 @@ from scrivener_assistant.config import ProjectConfig
 
 logger = logging.getLogger(__name__)
 
-DRAFT_FILES = {"brainstorm", "beats", "draft"}
+DRAFT_FILES = {"brainstorm", "beats", "draft", "draft.sent"}
 
 
 class DraftManager:
