@@ -2,6 +2,29 @@
 
 Roadmap for the author-voice feature. Design: [docs/superpowers/specs/2026-11-10-author-voice-design.md](docs/superpowers/specs/2026-11-10-author-voice-design.md).
 
+## Resume here (last update: 2026-11-11)
+
+- **Claude Code session**: `83465f4f-af6f-46b3-8b98-35a26ee829b8` — run
+  `claude --resume 83465f4f-af6f-46b3-8b98-35a26ee829b8` from this repo on the host (not in the
+  devcontainer: sessions are stored per working directory under `~/.claude/projects/`).
+  If the session is gone, this file + the design spec are enough to restart.
+- **Branch**: `learn_write`, pushed; PR [#17](https://github.com/elnino1/scrivener-assistant/pull/17)
+  to `main` is open and not merged.
+- **State**: phase 1 done and shipped in a local `.mcpb` (installed in Claude Desktop);
+  `voice-bootstrap` was run on the corpus, `voice/` exists in the project.
+- **Done 2026-11-11**: voice audit of the mixed "Hope" scenes (one-off script, report given to the
+  author); `handoff_draft` implemented; chapter 2 "Hope" frozen with `source="scrivener"`
+  (18 non-empty scenes, `kind: legacy-mixed`).
+- **Next**: the author retouches "Hope" in Scrivener; meanwhile, build the `voice-learner` MCP prompt
+  and test it on that chapter's diff (weak evidence: hypotheses only, no promotion).
+- **Server not rebuilt yet**: the installed `.mcpb` does not have `handoff_draft`.
+- **After any server change**: `uv run --extra dev pytest`, rebuild with
+  `npx -y @anthropic-ai/mcpb pack . scrivener-assistant-dev.mcpb`, uninstall the old extension in
+  Claude Desktop, install the new one, re-set the project path.
+- **Conventions**: agent instructions live in `src/scrivener_assistant/agent_prompts/*.md` and are
+  exposed as MCP prompts in `src/server.py` (`# --- Prompts ---`); new tools must also be listed in
+  `manifest.json`.
+
 ## Done
 
 - [x] **Phase 1 — Measure**: `voice_stats`, `compare_voice_stats`, `compute_voice_baseline`,
@@ -11,9 +34,8 @@ Roadmap for the author-voice feature. Design: [docs/superpowers/specs/2026-11-10
 
 ## Next — author
 
-- [ ] Review `.ai-assistant/voice/guide.md`: drop moves that feel wrong, add missing ones,
-      check the banned list. The bootstrap guide is a model's reading of the text; the author's
-      review is what makes it a reference.
+- [x] Review `.ai-assistant/voice/guide.md` (2026-11-11): open points resolved (tense aligned with
+      the corpus in `style.md`; two timelines, Célestia 2057 then Hope 2066).
 
 ## Decisions
 
@@ -27,7 +49,7 @@ Roadmap for the author-voice feature. Design: [docs/superpowers/specs/2026-11-10
 
 ## Phase 2 — Learn (close the loop)
 
-- [ ] `handoff_draft(chapter)` tool: freeze `draft.md` into `draft.sent.md`, the diff baseline.
+- [x] `handoff_draft(chapter, source, overwrite)` tool: freeze `draft.md` into `draft.sent.md`, the diff baseline (plus `handoff.json`). `source="scrivener"` freezes the current Scrivener text for legacy mixed chapters (kind `legacy-mixed`, weak evidence).
 - [ ] `voice-learner` MCP prompt, run after retouching a chapter:
   - [ ] `compute_rewrite_diff`, then classify each edit: voice / structure / tic / plot / fidelity
         (only voice, structure and tic feed the voice model);

@@ -61,6 +61,7 @@ New folder inside `.ai-assistant/`, next to `world/`:
 └── drafts/chapter-NN/
     ├── draft.md            # existing; may still be revised before hand-off
     ├── draft.sent.md       # NEW — frozen copy handed to the author (the diff baseline)
+    ├── handoff.json        # NEW — hand-off record: source, kind, sent_at, frozen scenes
     ├── judge.md            # NEW — judge rounds: scores, evidence, top fixes
     └── predictions.md      # NEW — sealed predicted edits, written at hand-off
 ```
@@ -94,6 +95,19 @@ tolerance flag. Both are exposed as MCP tools.
 - Output: word-level **edit rate**, counts of kept / modified / deleted / inserted sentences, and
   the list of edit pairs `{before, after, op, position}`.
 - Saved to `voice/edits/chapter-NN.json`. Classification is added later by `voice-learner`.
+- When `handoff.json` exists, the output carries its `kind` and `sent_at`, and the final text is
+  limited to its `frozen_scenes` (if set).
+
+### 2b. `handoff_draft(chapter, source, overwrite)` — freeze the diff baseline (Python)
+
+- `source="draft"` (normal): copy `draft.md` to `draft.sent.md`; `kind: ai-draft`.
+- `source="scrivener"` (legacy chapters drafted before this workflow, mixing author and AI text,
+  never frozen): freeze the current Scrivener text of the chapter's **non-empty** scenes;
+  `kind: legacy-mixed`. Scenes empty at hand-off are recorded out of `frozen_scenes`, so text
+  written there later never counts as edits. Diffs of a `legacy-mixed` chapter are weak evidence:
+  they may create or support hypotheses, never promote a rule on their own.
+- Refuses to replace an existing `draft.sent.md` unless `overwrite=True`.
+- Writes `handoff.json`: chapter, title, source, kind, `sent_at`, words, scenes, `frozen_scenes`.
 
 ### 3. `voice-judge` agent
 

@@ -891,6 +891,84 @@ def compute_voice_baseline(uuids: list[str]) -> str:
         return f"Error computing voice baseline: {e}"
 
 
+def _chapter_scrivener_text(resolved: dict, uuids: Optional[list] = None) -> str:
+    """Current Scrivener text of a resolved chapter: scenes in binder order joined with newlines.
+    If `uuids` is given, only those scenes are included (still in binder order)."""
+    scenes = [s for s in resolved["scenes"] if uuids is None or s["uuid"] in uuids]
+    return "\n".join(current_project.read_document(s["uuid"]) for s in scenes)
+
+
+@mcp.tool()
+def handoff_draft(chapter: str, source: str = "draft", overwrite: bool = False) -> str:
+    """
+    Freezes the text handed to the author into drafts/chapter-NN/draft.sent.md, the baseline
+    of compute_rewrite_diff, and records drafts/chapter-NN/handoff.json.
+
+    Args:
+        chapter: 1-based chapter number or chapter title (see resolve_chapter_scenes).
+        source: "draft" (default) copies drafts/chapter-NN/draft.md (an AI draft). "scrivener"
+            freezes the CURRENT Scrivener text of the chapter (legacy chapters mixing author and
+            AI text that were never frozen; the resulting diff is weak evidence).
+        overwrite: True to replace an existing draft.sent.md (it is the diff baseline).
+
+    Returns:
+        JSON summary: chapter, source, kind, words, scenes count and saved paths.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        if source not in ("draft", "scrivener"):
+            return f"Error: invalid source '{source}'. Use 'draft' or 'scrivener'."
+        resolved = current_project.scene_registry.resolve_chapter(chapter, current_project)
+        number = resolved["number"]
+        dm = current_project.draft_manager
+        if dm.get_file(number, "draft.sent") is not None and not overwrite:
+            return (f"Error: draft.sent.md already exists for chapter {number:02d}. It is the baseline "
+                    "of compute_rewrite_diff; call again with overwrite=True to replace it.")
+        if source == "draft":
+            text = dm.get_file(number, "draft")
+            if text is None or not text.strip():
+                return f"Error: drafts/chapter-{number:02d}/draft.md is missing or empty."
+            kind = "ai-draft"
+            frozen = None
+        else:
+            # Only freeze scenes that already have text: scenes written later must not show up
+            # as edits in compute_rewrite_diff.
+            frozen = [s["uuid"] for s in resolved["scenes"]
+                      if current_project.read_document(s["uuid"]).strip()]
+            text = _chapter_scrivener_text(resolved, frozen)
+            if not text.strip():
+                return f"Error: the Scrivener sections of chapter {number:02d} are empty."
+            kind = "legacy-mixed"
+        words = len(text.split())
+        sent_path = dm.save_file(number, "draft.sent", text)
+        handoff_path = dm.save_handoff(number, {
+            "chapter": number,
+            "chapter_title": resolved["title"],
+            "source": source,
+            "kind": kind,
+            "sent_at": datetime.datetime.now().isoformat(timespec="seconds"),
+            "words": words,
+            "scenes": resolved["scenes"],
+            "frozen_scenes": frozen,
+        })
+        summary = {
+            "chapter": number,
+            "chapter_title": resolved["title"],
+            "source": source,
+            "kind": kind,
+            "words": words,
+            "scenes": len(resolved["scenes"]),
+            "frozen_scenes": len(frozen) if frozen is not None else None,
+            "saved_to": [str(sent_path), str(handoff_path)],
+        }
+        return json.dumps(summary, indent=2, ensure_ascii=False)
+    except ValueError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Error handing off draft: {e}"
+
+
 @mcp.tool()
 def compute_rewrite_diff(chapter: str) -> str:
     """
@@ -919,7 +997,9 @@ def compute_rewrite_diff(chapter: str) -> str:
                        "after it was handed to the author.")
         if draft is None:
             return f"Error: no draft found for chapter {number:02d} (neither draft.sent.md nor draft.md)."
-        final = "\n".join(current_project.read_document(s["uuid"]) for s in resolved["scenes"])
+        handoff = current_project.draft_manager.get_handoff(number)
+        frozen = handoff.get("frozen_scenes") if handoff else None
+        final = _chapter_scrivener_text(resolved, frozen)
         if not final.strip():
             return f"Error: the Scrivener sections of chapter {number:02d} are empty."
         diff = _rewrite_diff.compute_rewrite_diff(draft, final)
@@ -931,6 +1011,9 @@ def compute_rewrite_diff(chapter: str) -> str:
             "scenes": [s["uuid"] for s in resolved["scenes"]],
             **diff,
         }
+        if handoff:
+            data["handoff_kind"] = handoff.get("kind")
+            data["sent_at"] = handoff.get("sent_at")
         path = current_project.voice_manager.save_edits(number, data)
         summary = {
             "chapter": number,
@@ -946,6 +1029,13 @@ def compute_rewrite_diff(chapter: str) -> str:
             "pairs_total": len(diff["pairs"]),
             "pairs": diff["pairs"][:10],
         }
+        if handoff:
+            summary["handoff_kind"] = handoff.get("kind")
+            summary["sent_at"] = handoff.get("sent_at")
+            if handoff.get("kind") == "legacy-mixed":
+                summary["note"] = ("The baseline was frozen from Scrivener text that mixes author and AI "
+                                   "writing (legacy-mixed): these edits are weak evidence. Use them as "
+                                   "hypotheses only, never for promotion on their own.")
         if warning:
             summary["warning"] = warning
         return json.dumps(summary, indent=2, ensure_ascii=False)

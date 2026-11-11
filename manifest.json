@@ -65,6 +65,7 @@
     {"name": "voice_stats", "description": "Compute deterministic French style metrics for a text or Scrivener documents"},
     {"name": "compare_voice_stats", "description": "Compare a text's style metrics with the author's voice baseline"},
     {"name": "compute_voice_baseline", "description": "Build and save the author's voice baseline from human-written documents"},
+    {"name": "handoff_draft", "description": "Freeze the text handed to the author (AI draft, or current Scrivener text for legacy chapters) as the retouch-diff baseline"},
     {"name": "compute_rewrite_diff", "description": "Measure how much the author retouched a chapter's AI draft (edit rate and edit pairs)"},
     {"name": "get_voice", "description": "Read a voice file: guide, hypotheses or ledger"},
     {"name": "save_voice", "description": "Write a voice file: guide, hypotheses or ledger"},

@@ -87,3 +87,98 @@ def test_voice_tools_roundtrip(tmp_path):
     server.save_draft(1, "x")  # keep draft.md only; draft.sent.md takes precedence once present
     server.current_project.draft_manager.save_file(1, "draft.sent", "Il marchait dans la rue. Elle partit.")
     assert json.loads(server.compute_rewrite_diff("1"))["baseline_file"] == "draft.sent.md"
+
+
+def _handoff_project(tmp_path):
+    import shutil
+    import server
+    dest = tmp_path / "temp.scriv"
+    shutil.copytree(VALID_PROJECT, dest)
+    set_project_path(str(dest))
+    server.current_project.read_document = lambda uuid: "Il marchait dans la rue. Elle partit."
+    return dest
+
+
+def test_handoff_draft_source_draft(tmp_path):
+    import json
+    import server
+    dest = _handoff_project(tmp_path)
+    assert "missing or empty" in server.handoff_draft("1")
+    server.save_draft(1, "Il marchait dans la rue. Elle resta.")
+    result = json.loads(server.handoff_draft("1"))
+    assert result["kind"] == "ai-draft" and result["source"] == "draft"
+    assert result["words"] == 7 and result["scenes"] >= 1
+    chapter_dir = dest / ".ai-assistant" / "drafts" / "chapter-01"
+    assert (chapter_dir / "draft.sent.md").read_text(encoding="utf-8") == "Il marchait dans la rue. Elle resta."
+    handoff = json.loads((chapter_dir / "handoff.json").read_text(encoding="utf-8"))
+    assert handoff["kind"] == "ai-draft" and handoff["chapter"] == 1 and handoff["sent_at"]
+    assert handoff["scenes"] and set(handoff["scenes"][0]) == {"uuid", "title", "word_count"}
+
+    diff = json.loads(server.compute_rewrite_diff("1"))
+    assert diff["handoff_kind"] == "ai-draft" and "note" not in diff
+
+
+def test_handoff_draft_overwrite_and_invalid_source(tmp_path):
+    import server
+    _handoff_project(tmp_path)
+    server.save_draft(1, "Premier texte.")
+    assert "Error" in server.handoff_draft("1", source="bogus")
+    assert "kind" in server.handoff_draft("1")
+    err = server.handoff_draft("1")
+    assert err.startswith("Error") and "overwrite=True" in err
+    server.save_draft(1, "Second texte.")
+    assert "kind" in server.handoff_draft("1", overwrite=True)
+    assert server.current_project.draft_manager.get_file(1, "draft.sent") == "Second texte."
+
+
+def test_handoff_draft_scrivener_legacy(tmp_path):
+    import json
+    import server
+    _handoff_project(tmp_path)
+    result = json.loads(server.handoff_draft("1", source="scrivener"))
+    assert result["kind"] == "legacy-mixed"
+    resolved = server.current_project.scene_registry.resolve_chapter("1", server.current_project)
+    expected = server._chapter_scrivener_text(resolved)
+    assert server.current_project.draft_manager.get_file(1, "draft.sent") == expected
+
+    diff = json.loads(server.compute_rewrite_diff("1"))
+    assert diff["baseline_file"] == "draft.sent.md"
+    assert diff["edit_rate"] == 0.0 and diff["pairs_total"] == 0
+    assert diff["handoff_kind"] == "legacy-mixed" and "weak evidence" in diff["note"]
+    saved = json.loads((tmp_path / "temp.scriv" / ".ai-assistant" / "voice" / "edits" / "chapter-01.json").read_text(encoding="utf-8"))
+    assert saved["handoff_kind"] == "legacy-mixed"
+
+
+def test_handoff_draft_scrivener_ignores_scenes_written_later(tmp_path):
+    import json
+    import server
+    _handoff_project(tmp_path)
+    resolved = server.current_project.scene_registry.resolve_chapter("1", server.current_project)
+    uuids = [s["uuid"] for s in resolved["scenes"]]
+    assert len(uuids) >= 2, "fixture chapter 1 needs at least two scenes"
+    texts = {u: "Il marchait dans la rue. Elle partit." for u in uuids}
+    texts[uuids[-1]] = ""  # empty at hand-off time
+    server.current_project.read_document = lambda uuid: texts[uuid]
+    result = json.loads(server.handoff_draft("1", source="scrivener"))
+    assert result["frozen_scenes"] == len(uuids) - 1
+
+    texts[uuids[-1]] = "Une scène entièrement nouvelle, écrite après le gel."
+    diff = json.loads(server.compute_rewrite_diff("1"))
+    assert diff["edit_rate"] == 0.0 and diff["pairs_total"] == 0
+
+
+def test_handoff_draft_scrivener_empty(tmp_path):
+    import server
+    _handoff_project(tmp_path)
+    server.current_project.read_document = lambda uuid: ""
+    assert "empty" in server.handoff_draft("1", source="scrivener")
+
+
+def test_handoff_draft_without_project():
+    import server
+    saved = server.current_project
+    server.current_project = None
+    try:
+        assert "No project loaded" in server.handoff_draft("1")
+    finally:
+        server.current_project = saved
