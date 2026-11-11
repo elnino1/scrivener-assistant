@@ -28,7 +28,8 @@ Read the **[User Guide](docs/user_guide.md)** to set up the writing workflow (br
 - Hand-off (`handoff_draft`): freezes the AI draft as `draft.sent.md` (the diff baseline) before you retouch it. For legacy chapters that mix your text and AI text and were never frozen, `source="scrivener"` freezes the current Scrivener text instead; the later diff is then flagged `legacy-mixed` and counts as weak evidence only.
 - Retouch measurement (`compute_rewrite_diff`): compares the AI draft with your retouched text in Scrivener and reports the edit rate and every before → after edit. `[AUTEUR: …]` placeholders you fill in are not counted as edits.
 - Chapters are resolved by number or title from the scene registry (`resolve_chapter_scenes`).
-- Learning loop (edit classification, rules promoted after several chapters, voice judge, predicted edits): planned — see [TODOS.md](TODOS.md) and the [design](docs/superpowers/specs/2026-11-10-author-voice-design.md).
+- `voice-learner` prompt — run after retouching a chapter: classifies every edit (voice / structure / tic / plot / fidelity), derives rule hypotheses, proposes promotions to the guide, exemplars and baseline growth (nothing is written to `guide.md` without your approval), and logs the edit rate in `ledger.md`. The baseline only grows with text you wrote yourself, never with retouched AI text.
+- Still planned (voice judge, predicted edits): see [TODOS.md](TODOS.md) and the [design](docs/superpowers/specs/2026-11-10-author-voice-design.md).
 
 **World & story data**
 - `world/` — style guide, universe bible, structure, plan, timeline, relations (human-editable)
@@ -165,10 +166,10 @@ Run `scrivener-cli --help` for a full list of commands.
 | **Characters** | `save_character`, `get_character`, `list_characters` |
 | **Locations** | `save_location`, `get_location`, `list_locations` |
 | **Prompts** | `save_prompt`, `get_prompt`, `list_prompts` |
-| **Voice** | `resolve_chapter_scenes`, `voice_stats`, `compare_voice_stats`, `compute_voice_baseline`, `handoff_draft`, `compute_rewrite_diff`, `get_voice`, `save_voice`, `save_voice_exemplar`, `list_voice_exemplars`, `get_voice_exemplar` |
+| **Voice** | `resolve_chapter_scenes`, `voice_stats`, `compare_voice_stats`, `compute_voice_baseline`, `handoff_draft`, `compute_rewrite_diff`, `get_rewrite_edits`, `save_edit_labels`, `count_in_corpus`, `get_voice_baseline_sources`, `get_voice`, `save_voice`, `save_voice_exemplar`, `list_voice_exemplars`, `get_voice_exemplar` |
 | **Extraction** | `extract_bible_from_chapters` |
 
-MCP prompts: `voice-bootstrap` (optional `corpus` argument). See [docs/REFERENCE.md](docs/REFERENCE.md).
+MCP prompts: `voice-bootstrap` (optional `corpus` argument), `voice-learner` (optional `chapter` argument). See [docs/REFERENCE.md](docs/REFERENCE.md).
 
 ## Development
 

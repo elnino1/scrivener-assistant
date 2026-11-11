@@ -182,3 +182,99 @@ def test_handoff_draft_without_project():
         assert "No project loaded" in server.handoff_draft("1")
     finally:
         server.current_project = saved
+
+
+# --- voice-learner tools ---
+
+def _edits_project(tmp_path):
+    import server
+    dest = _handoff_project(tmp_path)
+    server.save_draft(1, "Il marchait dans la rue. Elle resta. Un instant plus tard, tout changea.")
+    server.handoff_draft("1")
+    server.current_project.read_document = lambda uuid: "Il marchait dans la rue. Elle partit. Tout changea."
+    return dest
+
+
+def test_get_rewrite_edits_missing(tmp_path):
+    import server
+    _handoff_project(tmp_path)
+    assert "compute_rewrite_diff" in server.get_rewrite_edits("1")
+    assert "compute_rewrite_diff" in server.save_edit_labels("1", [])
+
+
+def test_edit_labels_roundtrip_and_rerun(tmp_path):
+    import json
+    import server
+    _edits_project(tmp_path)
+    server.compute_rewrite_diff("1")
+    out = json.loads(server.get_rewrite_edits("1"))
+    assert out["pairs_total"] >= 1 and out["unlabeled"] == out["pairs_total"]
+    assert out["handoff_kind"] == "ai-draft"
+    pair = out["pairs"][0]
+    assert len(pair["id"]) == 12 and pair["index"] == 0 and pair["category"] is None
+    import hashlib
+    raw = f"{pair['op']}\x1f{pair['before'] or ''}\x1f{pair['after'] or ''}"
+    assert pair["id"] == hashlib.sha1(raw.encode()).hexdigest()[:12]
+
+    saved = json.loads(server.save_edit_labels("1", [{"id": pair["id"], "category": "tic", "note": "n"}]))
+    assert saved["label_counts"]["tic"] == 1 and saved["unlabeled"] == out["pairs_total"] - 1
+
+    server.compute_rewrite_diff("1")  # rerun overwrites the edits file
+    again = json.loads(server.get_rewrite_edits("1"))
+    assert again["pairs"][0]["category"] == "tic" and again["pairs"][0]["note"] == "n"
+    assert again["label_counts"]["tic"] == 1
+
+
+def test_save_edit_labels_validation(tmp_path):
+    import json
+    import server
+    _edits_project(tmp_path)
+    server.compute_rewrite_diff("1")
+    pid = json.loads(server.get_rewrite_edits("1"))["pairs"][0]["id"]
+    err = server.save_edit_labels("1", [{"id": pid, "category": "voice"}, {"id": "nope", "category": "voice"}])
+    assert err.startswith("Error") and "nope" in err
+    err = server.save_edit_labels("1", [{"id": pid, "category": "bogus"}])
+    assert err.startswith("Error") and "bogus" in err
+    # nothing was saved by the rejected calls
+    assert json.loads(server.get_rewrite_edits("1"))["label_counts"]["voice"] == 0
+
+
+def test_get_rewrite_edits_filter_and_offset(tmp_path):
+    import json
+    import server
+    _edits_project(tmp_path)
+    server.compute_rewrite_diff("1")
+    vm = server.current_project.voice_manager
+    data = vm.get_edits(1)
+    data["pairs"] = [{"op": "modify", "before": f"a{i}", "after": f"b{i}", "position": i,
+                      "category": None, "changed_words": 1} for i in range(5)]
+    vm.save_edits(1, data)
+    ids = [p["id"] for p in json.loads(server.get_rewrite_edits("1"))["pairs"]]
+    assert len(set(ids)) == 5
+    server.save_edit_labels("1", [{"id": ids[0], "category": "voice"}, {"id": ids[2], "category": "plot"}])
+    out = json.loads(server.get_rewrite_edits("1", only_unlabeled=True, offset=1, limit=1))
+    assert out["unlabeled"] == 3 and out["returned"] == 1
+    assert out["pairs"][0]["id"] == ids[3] and out["pairs"][0]["index"] == 3
+
+
+def test_count_in_corpus_and_baseline_sources(tmp_path):
+    import json
+    import server
+    _handoff_project(tmp_path)
+    assert "no voice baseline" in server.count_in_corpus("x").lower()
+    assert "no voice baseline" in server.get_voice_baseline_sources().lower()
+    server.current_project.read_document = lambda uuid: "Soudain, l’homme partit. SOUDAIN  rien."
+    uuids = [s["uuid"] for s in json.loads(server.resolve_chapter_scenes("1"))["scenes"]]
+    server.compute_voice_baseline(uuids)
+    baseline = server.current_project.voice_manager.get_baseline()
+    assert baseline["source_uuids"] == uuids
+    sources = json.loads(server.get_voice_baseline_sources())
+    assert sources["source_uuids"] == uuids and sources["sources"] == baseline["sources"]
+    res = json.loads(server.count_in_corpus("soudain"))
+    assert res["total"] == 2 * len(uuids) and res["by_scene"][0]["count"] == 2
+    assert json.loads(server.count_in_corpus("l'homme partit"))["total"] == len(uuids)
+    assert json.loads(server.count_in_corpus("absent"))["total"] == 0
+    # baseline without source_uuids
+    del baseline["source_uuids"]
+    server.current_project.voice_manager.save_baseline(baseline)
+    assert "source_uuids" in server.count_in_corpus("soudain")

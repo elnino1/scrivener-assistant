@@ -15,9 +15,12 @@ Roadmap for the author-voice feature. Design: [docs/superpowers/specs/2026-11-10
 - **Done 2026-11-11**: voice audit of the mixed "Hope" scenes (one-off script, report given to the
   author); `handoff_draft` implemented; chapter 2 "Hope" frozen with `source="scrivener"`
   (18 non-empty scenes, `kind: legacy-mixed`).
-- **Next**: the author retouches "Hope" in Scrivener; meanwhile, build the `voice-learner` MCP prompt
-  and test it on that chapter's diff (weak evidence: hypotheses only, no promotion).
-- **Server not rebuilt yet**: the installed `.mcpb` does not have `handoff_draft`.
+- **Done 2026-11-11**: `voice-learner` prompt + tools (`get_rewrite_edits`, `save_edit_labels`,
+  `count_in_corpus`, `get_voice_baseline_sources`); `source_uuids` (the 25 corpus scenes) added to
+  the project's `baseline.json`.
+- **Next**: rebuild and reinstall the `.mcpb` (it has neither `handoff_draft` nor `voice-learner`);
+  the author retouches "Hope", then runs `voice-learner` on chapter 2 (weak evidence: hypotheses only).
+- **Known gap**: `voice/exemplars/` is empty (bootstrap step 4 was not run).
 - **After any server change**: `uv run --extra dev pytest`, rebuild with
   `npx -y @anthropic-ai/mcpb pack . scrivener-assistant-dev.mcpb`, uninstall the old extension in
   Claude Desktop, install the new one, re-set the project path.
@@ -50,14 +53,17 @@ Roadmap for the author-voice feature. Design: [docs/superpowers/specs/2026-11-10
 ## Phase 2 — Learn (close the loop)
 
 - [x] `handoff_draft(chapter, source, overwrite)` tool: freeze `draft.md` into `draft.sent.md`, the diff baseline (plus `handoff.json`). `source="scrivener"` freezes the current Scrivener text for legacy mixed chapters (kind `legacy-mixed`, weak evidence).
-- [ ] `voice-learner` MCP prompt, run after retouching a chapter:
-  - [ ] `compute_rewrite_diff`, then classify each edit: voice / structure / tic / plot / fidelity
-        (only voice, structure and tic feed the voice model);
-  - [ ] derive candidate rules into `hypotheses.md` (statement, kind, evidence, chapters seen / contradicted);
-  - [ ] promotion: seen in ≥ 3 chapters and never contradicted → `guide.md`;
-        demotion: contradicted in 2 chapters → back to `hypotheses.md`;
-  - [ ] add strong author passages to `exemplars/`;
-  - [ ] append a row to `ledger.md` and refresh `baseline.json`.
+- [x] `voice-learner` MCP prompt, run after retouching a chapter (author validates every write to `guide.md`):
+  - [x] `compute_rewrite_diff`, then classify each edit: voice / structure / tic / plot / fidelity
+        (`get_rewrite_edits` / `save_edit_labels`, labels persist across diff re-runs;
+        only voice, structure and tic feed the voice model);
+  - [x] derive candidate rules into `hypotheses.md` (statement, kind, evidence, chapters seen / contradicted);
+  - [x] promotion: seen in ≥ 3 chapters (legacy-mixed excluded) and never contradicted → `guide.md`
+        (`ban` needs `count_in_corpus` = 0); demotion: contradicted in 2 chapters;
+  - [x] add strong author passages to `exemplars/`;
+  - [x] append a row to `ledger.md`; baseline grows only with author-written text, after approval
+        (never with retouched AI text);
+  - [ ] score predictions (needs phase 3 `predictions.md`).
 - [ ] `get_brainstorm(chapter)` tool, and fix `draft-agent` "On start" step 4 (it uses `get_draft`).
 - [ ] Convert the writing-workflow agents (`brainstorm`, `draft`, `review`, `scene-chronicler`) to MCP prompts.
 - [ ] Idea — **voice audit** of mixed sections: run `compare_voice_stats` paragraph by paragraph on

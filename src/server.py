@@ -14,6 +14,7 @@ from scrivener_assistant import ScrivenerProject
 from scrivener_assistant import voice_stats as _voice_stats
 from scrivener_assistant import rewrite_diff as _rewrite_diff
 from scrivener_assistant.agent_prompts import load_agent_prompt
+from scrivener_assistant.voice_manager import EDIT_CATEGORIES, edit_id as _edit_id, normalize_text as _normalize_text
 
 # Initialize FastMCP Server
 mcp = FastMCP("Scrivener assistant")
@@ -871,6 +872,7 @@ def compute_voice_baseline(uuids: list[str]) -> str:
         if not texts:
             return "Error: no non-empty document among the given UUIDs."
         baseline = _voice_stats.build_baseline(texts)
+        baseline["source_uuids"] = list(uuids)
         path = current_project.voice_manager.save_baseline(baseline)
         agg = baseline["aggregate"]
         summary = {
@@ -1045,6 +1047,183 @@ def compute_rewrite_diff(chapter: str) -> str:
         return f"Error computing rewrite diff: {e}"
 
 
+def _edits_for(chapter: str):
+    """Resolve a chapter and load its saved edits. Returns (number, data) or raises ValueError."""
+    resolved = current_project.scene_registry.resolve_chapter(chapter, current_project)
+    number = resolved["number"]
+    data = current_project.voice_manager.get_edits(number)
+    if data is None:
+        raise ValueError(f"no edits saved for chapter {number:02d}: run compute_rewrite_diff first.")
+    return number, data
+
+
+@mcp.tool()
+def get_rewrite_edits(chapter: str, offset: int = 0, limit: int = 40, only_unlabeled: bool = False) -> str:
+    """
+    Reads the edit pairs saved by compute_rewrite_diff, with their labels (if any).
+
+    Args:
+        chapter: 1-based chapter number or chapter title.
+        offset: Index of the first pair to return (after the only_unlabeled filter).
+        limit: Maximum number of pairs to return.
+        only_unlabeled: True to return only pairs that have no label yet.
+
+    Returns:
+        JSON: chapter, handoff_kind, edit_rate, totals, label counts, unlabeled count and the
+        slice of pairs (index, stable id, op, before, after, changed_words, category, note).
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        number, data = _edits_for(chapter)
+        labels = current_project.voice_manager.get_edit_labels(number)
+        pairs = []
+        for index, pair in enumerate(data.get("pairs", [])):
+            pid = _edit_id(pair)
+            label = labels.get(pid)
+            pairs.append({
+                "index": index,
+                "id": pid,
+                "op": pair.get("op"),
+                "before": pair.get("before"),
+                "after": pair.get("after"),
+                "changed_words": pair.get("changed_words"),
+                "category": label["category"] if label else None,
+                "note": label.get("note") if label else None,
+            })
+        counts = {c: 0 for c in EDIT_CATEGORIES}
+        for p in pairs:
+            if p["category"] in counts:
+                counts[p["category"]] += 1
+        unlabeled = sum(1 for p in pairs if p["category"] is None)
+        selected = [p for p in pairs if p["category"] is None] if only_unlabeled else pairs
+        offset = max(offset, 0)
+        result = {
+            "chapter": number,
+            "handoff_kind": data.get("handoff_kind"),
+            "edit_rate": data.get("edit_rate"),
+            "pairs_total": len(pairs),
+            "label_counts": counts,
+            "unlabeled": unlabeled,
+            "offset": offset,
+            "returned": len(selected[offset:offset + max(limit, 0)]),
+            "pairs": selected[offset:offset + max(limit, 0)],
+        }
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    except ValueError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Error reading rewrite edits: {e}"
+
+
+@mcp.tool()
+def save_edit_labels(chapter: str, labels: list[dict]) -> str:
+    """
+    Labels edit pairs of a chapter. Labels live in voice/edits/chapter-NN.labels.json and survive
+    a re-run of compute_rewrite_diff (pairs are matched by their stable id).
+
+    Args:
+        chapter: 1-based chapter number or chapter title.
+        labels: List of {id, category, note?}. category is one of voice, structure, tic, plot,
+            fidelity. The whole call is rejected if any id is unknown or any category invalid.
+
+    Returns:
+        JSON: labels saved, counts per category and remaining unlabeled pairs.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        number, data = _edits_for(chapter)
+        known = {_edit_id(p) for p in data.get("pairs", [])}
+        bad = []
+        for i, item in enumerate(labels):
+            if not isinstance(item, dict) or "id" not in item:
+                bad.append({"item": i, "problem": "missing id"})
+            elif item["id"] not in known:
+                bad.append({"item": i, "id": item["id"], "problem": "unknown id for this chapter's current edits"})
+            elif item.get("category") not in EDIT_CATEGORIES:
+                bad.append({"item": i, "id": item["id"], "problem": f"invalid category {item.get('category')!r}"})
+        if bad:
+            return ("Error: nothing saved. Bad items: " + json.dumps(bad, ensure_ascii=False)
+                    + f". Valid categories: {list(EDIT_CATEGORIES)}.")
+        store = current_project.voice_manager.save_edit_labels(number, labels)
+        counts = {c: 0 for c in EDIT_CATEGORIES}
+        for pid in known:
+            if pid in store:
+                counts[store[pid]["category"]] += 1
+        result = {
+            "chapter": number,
+            "saved": len(labels),
+            "label_counts": counts,
+            "unlabeled": len(data.get("pairs", [])) - sum(1 for p in data.get("pairs", []) if _edit_id(p) in store),
+        }
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    except ValueError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Error saving edit labels: {e}"
+
+
+@mcp.tool()
+def get_voice_baseline_sources() -> str:
+    """
+    Returns the source_uuids (and the sources count) stored in voice/baseline.json, i.e. the
+    human-written corpus the baseline was built from.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        baseline = current_project.voice_manager.get_baseline()
+        if baseline is None:
+            return "Error: no voice baseline found. Run voice-bootstrap (compute_voice_baseline) first."
+        uuids = baseline.get("source_uuids")
+        return json.dumps({
+            "sources": baseline.get("sources"),
+            "source_uuids": uuids,
+            "note": None if uuids else "This baseline has no source_uuids: re-run compute_voice_baseline with the full list of UUIDs.",
+        }, indent=2, ensure_ascii=False)
+    except Exception as e:
+        return f"Error reading baseline sources: {e}"
+
+
+@mcp.tool()
+def count_in_corpus(phrase: str) -> str:
+    """
+    Counts a phrase in the human corpus (the source_uuids of voice/baseline.json). Case-insensitive;
+    nbsp, typographic apostrophes and whitespace runs are normalized. Used to check that a banned
+    phrase has zero occurrences in the author's own writing.
+
+    Args:
+        phrase: The word or phrase to count.
+
+    Returns:
+        JSON {phrase, total, by_scene: [{uuid, title, count}]} (non-zero scenes only).
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        needle = _normalize_text(phrase)
+        if not needle:
+            return "Error: empty phrase."
+        baseline = current_project.voice_manager.get_baseline()
+        if baseline is None:
+            return "Error: no voice baseline found. Run voice-bootstrap (compute_voice_baseline) first."
+        uuids = baseline.get("source_uuids")
+        if not uuids:
+            return ("Error: baseline.json has no source_uuids. Re-run compute_voice_baseline with the "
+                    "UUIDs of the human corpus (or add source_uuids to baseline.json).")
+        by_scene, total = [], 0
+        for uuid in uuids:
+            count = _normalize_text(current_project.read_document(uuid)).count(needle)
+            if count:
+                scene = current_project.scene_registry.get_scene(uuid) or {}
+                by_scene.append({"uuid": uuid, "title": scene.get("title"), "count": count})
+                total += count
+        return json.dumps({"phrase": phrase, "total": total, "by_scene": by_scene}, indent=2, ensure_ascii=False)
+    except Exception as e:
+        return f"Error counting in corpus: {e}"
+
+
 @mcp.tool()
 def get_voice(name: str) -> str:
     """
@@ -1147,6 +1326,21 @@ def voice_bootstrap_prompt(corpus: str = "") -> str:
             "\n\nCorpus précisé par l'auteur (il remplace le corpus par défaut de "
             f"l'étape 1) : {corpus.strip()}\n"
         )
+    return text
+
+
+@mcp.prompt(
+    name="voice-learner",
+    description=(
+        "Learning loop after retouching a chapter: diff, classify edits, update rule hypotheses, "
+        "propose promotions/exemplars/baseline growth (author validates), log in ledger.md."
+    ),
+)
+def voice_learner_prompt(chapter: str = "") -> str:
+    """Instructions for the voice-learner workflow (no project needed to render)."""
+    text = load_agent_prompt("voice_learner")
+    if chapter.strip():
+        text += f"\n\nChapitre indiqué par l'auteur (étape 1) : {chapter.strip()}\n"
     return text
 
 

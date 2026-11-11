@@ -138,20 +138,36 @@ edit rate, counted separately).
 
 ### 5. `voice-learner` agent
 
-Run by the author after retouching a chapter, before `review-agent`:
+Run by the author after retouching a chapter, before `review-agent`. Exposed as the
+`voice-learner` MCP prompt (optional `chapter` argument) with a thin Claude Code wrapper.
 
-1. `compute_rewrite_diff(chapter, uuids)`.
-2. Classify each edit pair: `voice` (word choice, rhythm, register), `structure` (order, cuts,
-   paragraphing), `fidelity` (fact / continuity fix), `plot` (story change), `tic` (AI-ism removed).
+1. `resolve_chapter_scenes` + `compute_rewrite_diff(chapter)`; report edit rate, counts and
+   `handoff_kind` (`legacy-mixed` = weak evidence; no hand-off = indicative measure).
+2. Classify each edit pair (`get_rewrite_edits(only_unlabeled=True)` → `save_edit_labels`):
+   `voice` (word choice, rhythm, register), `structure` (order, cuts, paragraphing), `fidelity`
+   (fact / continuity fix), `plot` (story change), `tic` (AI-ism removed).
    Only `voice`, `structure` and `tic` feed the voice model.
-3. Score `predictions.md` against the real edits → **prediction hit rate**.
-4. Derive candidate rules. Each one goes to `hypotheses.md` with: statement, kind
-   (`prefer`, `avoid`, `ban`, `stat`), before/after evidence, chapters seen, chapters contradicted.
-5. **Promotion**: a hypothesis seen in ≥ 3 chapters and contradicted in none moves to `guide.md`.
-   **Demotion**: a guide rule contradicted in 2 chapters goes back to `hypotheses.md`.
-   A `ban` needs zero occurrences of the word in the human corpus.
-6. Add strong human-written passages (heavily retouched or added) to `exemplars/`.
-7. Append a row to `ledger.md` and update `baseline.json` with the retouched chapter.
+   **Label store:** labels live in `voice/edits/chapter-NN.labels.json`, keyed by a stable pair id
+   (sha1 of op/before/after), because re-running `compute_rewrite_diff` overwrites the edits file.
+3. Score `predictions.md` against the real edits → **prediction hit rate** (phase 3; "—" until then).
+4. Derive candidate rules into the `## Règles issues des retouches` table of `hypotheses.md`:
+   id, statement, kind (`prefer`, `avoid`, `ban`, `stat`), before/after evidence, chapters seen
+   (suffix "(faible)" for `legacy-mixed`), chapters contradicted, status.
+5. **Promotion**: a hypothesis seen in ≥ 3 chapters (weak chapters not counted) and contradicted
+   in none moves to `guide.md`. **Demotion**: a guide rule contradicted in 2 chapters goes back to
+   `hypotheses.md`. A `ban` needs zero occurrences in the human corpus (`count_in_corpus`).
+   **Author validation:** the learner proposes with evidence and writes `guide.md` only after the
+   author approves, in the conversation.
+6. Propose strong human-written passages (inserted or fully rewritten) as `exemplars/`, on approval.
+7. **Baseline policy:** `baseline.json` anchors the author's *human* voice. It is never updated
+   with retouched AI text, even approved (subtle AI tics survive retouching and would drift it
+   toward the model). It grows only with whole scenes the author declares written by hand (the
+   baseline is computed per scene; author passages inside a retouched scene go to `exemplars/`
+   only), after confirmation, via `compute_voice_baseline` with
+   the existing `source_uuids` (stored in `baseline.json`, readable with `get_voice_baseline_sources`)
+   plus the new ones. Success is measured by the edit rate going down in `ledger.md`.
+8. Append a row to the `## Retouches par chapitre` table of `ledger.md`. Only `ai-draft` rows are
+   comparable for the trend; `legacy-mixed` rows are weak evidence.
 
 ### 6. `voice-bootstrap` (one-time)
 
