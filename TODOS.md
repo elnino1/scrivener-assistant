@@ -4,29 +4,47 @@ Roadmap for the author-voice feature. Design: [docs/superpowers/specs/2026-11-10
 
 ## Resume here (last update: 2026-11-11)
 
-- **Claude Code session**: `83465f4f-af6f-46b3-8b98-35a26ee829b8` — run
-  `claude --resume 83465f4f-af6f-46b3-8b98-35a26ee829b8` from this repo on the host (not in the
+- **Claude Code session**: `ce5fd8b3-8451-4dad-95ec-917103de18e8` (previous: `83465f4f-…`) — run
+  `claude --resume ce5fd8b3-8451-4dad-95ec-917103de18e8` from this repo on the host (not in the
   devcontainer: sessions are stored per working directory under `~/.claude/projects/`).
   If the session is gone, this file + the design spec are enough to restart.
 - **Branch**: `learn_write`, pushed; PR [#17](https://github.com/elnino1/scrivener-assistant/pull/17)
   to `main` is open and not merged.
-- **State**: phase 1 done and shipped in a local `.mcpb` (installed in Claude Desktop);
-  `voice-bootstrap` was run on the corpus, `voice/` exists in the project.
-- **Done 2026-11-11**: voice audit of the mixed "Hope" scenes (one-off script, report given to the
-  author); `handoff_draft` implemented; chapter 2 "Hope" frozen with `source="scrivener"`
-  (18 non-empty scenes, `kind: legacy-mixed`).
-- **Done 2026-11-11**: `voice-learner` prompt + tools (`get_rewrite_edits`, `save_edit_labels`,
-  `count_in_corpus`, `get_voice_baseline_sources`); `source_uuids` (the 25 corpus scenes) added to
-  the project's `baseline.json`.
-- **Next**: rebuild and reinstall the `.mcpb` (it has neither `handoff_draft` nor `voice-learner`);
-  the author retouches "Hope", then runs `voice-learner` on chapter 2 (weak evidence: hypotheses only).
-- **Known gap**: `voice/exemplars/` is empty (bootstrap step 4 was not run).
+- **State**: phases 1 and 2 shipped (except prediction scoring); the rebuilt `.mcpb` (with
+  `handoff_draft` and the `voice-learner` prompt) is installed in Claude Desktop.
+- **Project data (`Mere.scriv/.ai-assistant/`)**:
+  - `voice/guide.md` reviewed by the author; `voice/baseline.json` = 25 human scenes, now with
+    `source_uuids`; `voice/exemplars/` = 17 exemplars (15 approved picks + `description-04`,
+    `action-04` chosen by the author).
+  - `voice/audit-hope-2026-11-11.md`: voice audit of the mixed "Hope" scenes (which passages to
+    retouch first). Caveat: « quelque chose », « un instant », « soudain » also occur in the
+    author's corpus (32 / 9 / 9), so they only signal overuse; em dashes in narration (author: 0)
+    are the reliable AI marker.
+  - Chapter 2 "Hope" is frozen (`drafts/chapter-02/draft.sent.md` + `handoff.json`,
+    `kind: legacy-mixed`, 18 non-empty scenes; the 4 empty scenes are excluded from the diff).
+
+### Next steps
+
+1. **Author**: retouch "Hope" in Scrivener (guided by the audit). Do not re-run `handoff_draft`
+   on chapter 2: it would reset the baseline of the diff.
+2. **Author, in Claude Desktop**: run the `voice-learner` prompt with `chapter = 2`. Expect a long
+   classification (many pairs); results are weak evidence (hypotheses only, no promotion).
+3. **Then, together**: review the hypotheses it produced and the prompt's behaviour; adjust
+   `agent_prompts/voice_learner.md` if needed.
+4. **Then phase 3** (below), starting with `draft-agent` reading `guide.md` + exemplars, and
+   `[AUTEUR: …]` placeholders; the next new chapter goes through `handoff_draft` (source `draft`).
+
+### Reminders
+
 - **After any server change**: `uv run --extra dev pytest`, rebuild with
   `npx -y @anthropic-ai/mcpb pack . scrivener-assistant-dev.mcpb`, uninstall the old extension in
   Claude Desktop, install the new one, re-set the project path.
 - **Conventions**: agent instructions live in `src/scrivener_assistant/agent_prompts/*.md` and are
   exposed as MCP prompts in `src/server.py` (`# --- Prompts ---`); new tools must also be listed in
   `manifest.json`.
+- **Decisions (2026-11-11)**: guide changes only after author approval; the baseline grows only
+  with whole scenes written by hand, never with retouched AI text; `legacy-mixed` chapters never
+  count toward promotion.
 
 ## Done
 
