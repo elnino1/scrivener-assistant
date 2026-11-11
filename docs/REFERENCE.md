@@ -62,7 +62,7 @@ MCP Client (Claude) ──JSON-RPC (stdio)──► server.py ──► Scrivene
 ```
 scrivener-assistant/
 ├── src/
-│   ├── server.py                        # MCP entry point — 38 registered tools
+│   ├── server.py                        # MCP entry point — 48 registered tools
 │   └── scrivener_assistant/
 │       ├── __init__.py                  # exports ScrivenerProject
 │       ├── project.py                   # ScrivenerProject — main façade
@@ -79,7 +79,10 @@ scrivener-assistant/
 │       ├── world_manager.py             # WorldManager — world/*.md sections
 │       ├── state_manager.py             # StateManager — per-chapter state snapshots
 │       ├── draft_manager.py             # DraftManager — brainstorm/beats/draft files
-│       ├── scene_registry_manager.py    # SceneRegistryManager — scene_registry.json
+│       ├── scene_registry_manager.py    # SceneRegistryManager — scene_registry.json, resolve_chapter()
+│       ├── voice_stats.py               # compute_voice_stats(), compare_voice_stats(), build_baseline() (pure)
+│       ├── rewrite_diff.py              # compute_rewrite_diff() — draft vs final (pure)
+│       ├── voice_manager.py             # VoiceManager — voice/ (guide, hypotheses, ledger, baseline, exemplars, edits)
 │       └── migration_tool.py            # one-time migration helpers
 │
 ├── tests/
@@ -90,6 +93,10 @@ scrivener-assistant/
 │   ├── test_rtf_converter.py
 │   ├── test_metadata_manager.py
 │   ├── test_scene_registry_manager.py
+│   ├── test_voice_stats.py
+│   ├── test_rewrite_diff.py
+│   ├── test_voice_manager.py
+│   ├── test_resolve_chapter.py
 │   ├── test_lore.py
 │   ├── test_project_validation.py
 │   ├── test_review_versioning.py
@@ -109,6 +116,8 @@ scrivener-assistant/
 │   └── agents/                         # Claude Code sub-agent definitions
 │       ├── brainstorm-agent.md
 │       ├── draft-agent.md
+│       ├── voice-bootstrap.md
+│       ├── voice-learner.md
 │       ├── review-agent.md
 │       └── scene-chronicler.md
 │
@@ -230,6 +239,13 @@ MyNovel.scriv/
     ├── reviews/                     ← same hierarchy + timestamped archive
     │   ├── manuscript/chapter-1/scene-title--<short-uuid>.md
     │   └── _archive/<uuid>/<ISO-timestamp>.md
+    ├── voice/                       ← author voice (system-maintained, see user guide)
+    │   ├── guide.md                 ← moves, numeric targets, banned list, judge dimensions
+    │   ├── hypotheses.md            ← candidate rules (phase 2)
+    │   ├── ledger.md                ← one row per chapter: edit rate, rules promoted
+    │   ├── baseline.json            ← voice stats of the human corpus (targets + tolerances)
+    │   ├── exemplars/<slug>.md      ← short author passages by kind
+    │   └── edits/chapter-NN.json    ← output of compute_rewrite_diff
     ├── world/
     │   ├── synthesis.md             ← quick-reference context (loaded at session start)
     │   ├── bible.md                 ← universe rules and facts
@@ -253,7 +269,8 @@ MyNovel.scriv/
         └── chapter-06/
             ├── brainstorm.md
             ├── beats.md
-            └── draft.md
+            ├── draft.md
+            └── draft.sent.md        ← optional frozen copy handed to the author (diff baseline)
 ```
 
 ### File naming for summaries and reviews
@@ -350,12 +367,43 @@ Files use a hybrid name: `<slugified-title>--<short-uuid>.md`. This makes files 
 | `save_draft` | `(chapter, content)` | Save AI-generated prose for a chapter |
 | `get_draft` | `(chapter)` | Retrieve the AI draft for a chapter |
 
+### Voice
+
+Author-voice measurement (phase 1). Files live in `voice/`; `world/style.md` is never touched.
+
+| Tool | Signature | Description |
+|---|---|---|
+| `resolve_chapter_scenes` | `(chapter)` | Resolve a chapter (1-based number or title, case/accent-insensitive, exact then unique prefix) to its sections in binder order. Returns JSON `{number, title, scenes: [{uuid, title, word_count}]}`. Chapters are the top-level DraftFolder children that hold at least one Text document. |
+| `voice_stats` | `(text="", uuids=[])` | Deterministic style metrics (sentence length, dialogue share, per-1000 frequencies of `on` / `-ment` / `!` / `?` / `…` / `;` / `:`, opening variety, lexical density, approximate tense mix) of a text or of concatenated documents. JSON. |
+| `compare_voice_stats` | `(text="", uuids=[])` | Same metrics next to `voice/baseline.json`: `{value, baseline, tolerance, within}` per metric plus the list of metrics out of tolerance. |
+| `compute_voice_baseline` | `(uuids)` | Build the baseline from human-written documents (one text per UUID; per metric mean and tolerance = max(stdev, 10% of mean)), save `voice/baseline.json` (including `source_uuids`), return a summary. |
+| `get_voice_baseline_sources` | `()` | `source_uuids` and sources count stored in `baseline.json`. |
+| `count_in_corpus` | `(phrase)` | Case-insensitive count of a phrase in the baseline's human corpus (nbsp, typographic apostrophes and whitespace normalized). JSON `{phrase, total, by_scene}`. Errors if the baseline is missing or has no `source_uuids`. |
+| `compute_rewrite_diff` | `(chapter)` | Compare `drafts/chapter-NN/draft.sent.md` (fallback `draft.md`, with a warning) with the chapter's Scrivener text. Returns edit rate, similarity, sentence counts (kept / modified / deleted / inserted), `[AUTEUR: …]` fill-ins and the first 10 edit pairs; full result saved to `voice/edits/chapter-NN.json`. |
+| `get_rewrite_edits` | `(chapter, offset=0, limit=40, only_unlabeled=False)` | Edit pairs saved by `compute_rewrite_diff`, each with `index`, stable `id` (12 hex chars of sha1 of op/before/after), `category` and `note`; plus edit rate, label counts and unlabeled count. |
+| `save_edit_labels` | `(chapter, labels)` | Label pairs (`{id, category, note?}`, category in voice / structure / tic / plot / fidelity). Whole call rejected on unknown id or bad category. Stored in `voice/edits/chapter-NN.labels.json`, so labels survive diff re-runs. |
+| `get_voice` / `save_voice` | `(name)` / `(name, content)` | Read / write `guide`, `hypotheses` or `ledger`. |
+| `save_voice_exemplar` | `(slug, content)` | Save an author passage; slug is `[a-z0-9-]+`. |
+| `list_voice_exemplars` | `()` | List exemplar slugs. |
+| `get_voice_exemplar` | `(slug)` | Read an exemplar. |
+
+**Heuristics.** `voice_stats` is regex-based and deterministic; tense detection, `-ment` adverbs and dialogue splitting are approximations meant to be consistent between the human corpus and drafts, not linguistically exact (see the `compute_voice_stats` docstring for each metric). `edit_rate` = (deleted + replaced draft words + inserted final words) / draft words, placeholder words excluded.
+
 ### Scene registry
 
 | Tool | Signature | Description |
 |---|---|---|
 | `rebuild_scene_registry` | `()` | Force a full rebuild of `scene_registry.json` from the current project state. Use once to bootstrap, or anytime to force a refresh. |
 | `get_scene_registry` | `(uuid="")` | Return the full registry JSON, or a single scene entry when `uuid` is provided. |
+
+### MCP prompts
+
+Prompts are exposed through the MCP prompts capability (Claude Desktop: "+" menu of the extension; Claude Code: `/` menu). They render without a loaded project. Their text lives in `src/scrivener_assistant/agent_prompts/` and is shared with the matching Claude Code subagent.
+
+| Prompt | Arguments | Purpose |
+|---|---|---|
+| `voice-bootstrap` | `corpus` (optional string) | One-time author-voice bootstrap (see `voice-bootstrap` in section 8). If `corpus` is given, it overrides the default corpus of step 1. |
+| `voice-learner` | `chapter` (optional string) | Post-retouch learning loop (see `voice-learner` in section 8). `chapter` pre-selects the chapter of step 1. |
 
 ---
 
@@ -374,6 +422,18 @@ Loads world context + current state, then engages in structured dialogue: raises
 **When:** Brainstorm notes are saved and a prose draft is needed.
 
 Reads brainstorm notes, world context, and state. Phase 1: writes 5–8 scene beats and asks for confirmation. Phase 2: writes full chapter prose following the approved beats and `world/style.md`. Saves to `drafts/chapter-NN/draft.md`.
+
+### `voice-learner`
+
+**When:** After retouching a chapter in Scrivener (the AI draft having been frozen with `handoff_draft`).
+
+Runs `compute_rewrite_diff`, labels every edit pair (`get_rewrite_edits` / `save_edit_labels`), updates the `## Règles issues des retouches` table of `hypotheses.md`, then proposes promotions / demotions in `guide.md`, exemplars and baseline growth: each is written only after the author approves. Appends a row to `ledger.md`. `legacy-mixed` chapters are weak evidence and never count toward the 3-chapter promotion threshold. Instructions live in `src/scrivener_assistant/agent_prompts/voice_learner.md`.
+
+### `voice-bootstrap`
+
+**When:** Once, to seed the author-voice files from text the author wrote entirely.
+
+Confirms the corpus (default: chapter "Celestia" + first 5 sections of "La découverte de Vee"), builds `voice/baseline.json`, then writes `voice/guide.md` (moves with quotes, numeric targets, narrow banned list, judge dimensions), 10–15 exemplars, and empty `hypotheses.md` / `ledger.md`. Never modifies `world/style.md`. Its instructions live in `src/scrivener_assistant/agent_prompts/voice_bootstrap.md`; the subagent reads that file, and the same text is exposed as the `voice-bootstrap` MCP prompt for Claude Desktop.
 
 ### `review-agent`
 

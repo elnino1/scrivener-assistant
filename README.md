@@ -22,10 +22,20 @@ Read the **[User Guide](docs/user_guide.md)** to set up the writing workflow (br
 - `review-agent` — 5-point quality review, score, summary, metadata extraction, state update
 - `scene-chronicler` — full enrichment pipeline for any existing scene (character sheets, location sheets, world file updates)
 
+**Author voice** — drafts that sound like you, and get better as you retouch them
+- `voice-bootstrap` prompt — one-time setup from chapters you wrote yourself: a measured baseline, a voice guide (characteristic moves, numeric targets, banned AI-isms) and exemplar passages. Available as an **MCP prompt**, so it works in Claude Desktop (prompts "+" menu) as well as in Claude Code.
+- Deterministic French style metrics (`voice_stats`, `compare_voice_stats`): sentence and paragraph length, dialogue share, `on` and `-ment` adverb frequency, sentence-opening variety, tense mix.
+- Hand-off (`handoff_draft`): freezes the AI draft as `draft.sent.md` (the diff baseline) before you retouch it. For legacy chapters that mix your text and AI text and were never frozen, `source="scrivener"` freezes the current Scrivener text instead; the later diff is then flagged `legacy-mixed` and counts as weak evidence only.
+- Retouch measurement (`compute_rewrite_diff`): compares the AI draft with your retouched text in Scrivener and reports the edit rate and every before → after edit. `[AUTEUR: …]` placeholders you fill in are not counted as edits.
+- Chapters are resolved by number or title from the scene registry (`resolve_chapter_scenes`).
+- `voice-learner` prompt — run after retouching a chapter: classifies every edit (voice / structure / tic / plot / fidelity), derives rule hypotheses, proposes promotions to the guide, exemplars and baseline growth (nothing is written to `guide.md` without your approval), and logs the edit rate in `ledger.md`. The baseline only grows with text you wrote yourself, never with retouched AI text.
+- Still planned (voice judge, predicted edits): see [TODOS.md](TODOS.md) and the [design](docs/superpowers/specs/2026-11-10-author-voice-design.md).
+
 **World & story data**
 - `world/` — style guide, universe bible, structure, plan, timeline, relations (human-editable)
 - `state/` — versioned per-chapter snapshots (situation, characters, knowledge, inventory)
 - `drafts/` — brainstorm notes, scene beats, AI-generated prose per chapter
+- `voice/` — voice guide, rule hypotheses, baseline metrics, exemplars, per-chapter edit diffs, progress ledger
 - Character and location profile database
 - Versioned review history (timestamped, browsable)
 - `scene_registry.json` — aggregated per-scene metadata (word count, synopsis, status, summary, review flag), auto-updated on every write
@@ -37,17 +47,17 @@ Read the **[User Guide](docs/user_guide.md)** to set up the writing workflow (br
 ## Installation
 
 ### Option A: Desktop Extension (Recommended)
-No Python installation required. Claude Desktop uses [UV](https://github.com/astral-sh/uv) to manage the Python environment automatically.
+No Python installation required: the extension runs the server with [uv](https://github.com/astral-sh/uv), which installs Python and the dependencies automatically. uv itself must be installed first (`brew install uv` on macOS) — without it the extension does not start.
 
 1. Download the latest `scrivener-assistant.mcpb` from the [Releases](https://github.com/elnino1/scrivener-assistant/releases) page.
 2. Double-click the `.mcpb` file — Claude Desktop will install it.
 3. Optionally set your project path in the extension settings UI.
 
-To build the `.mcpb` file yourself:
+To build the `.mcpb` file yourself (files listed in `.mcpbignore` are left out):
 ```bash
-npm install -g @anthropic-ai/mcpb
-mcpb pack .
+npx -y @anthropic-ai/mcpb pack . scrivener-assistant-dev.mcpb
 ```
+A local build keeps the `0.0.0-dev` version: uninstall the previous extension in Claude Desktop before installing it.
 
 ### Option B: Manual Installation (Advanced)
 
@@ -140,7 +150,7 @@ Run `scrivener-cli --help` for a full list of commands.
 
 ## MCP Tools Reference
 
-38 tools are exposed. Key ones:
+48 tools are exposed. Key ones:
 
 | Category | Tools |
 |----------|-------|
@@ -156,11 +166,16 @@ Run `scrivener-cli --help` for a full list of commands.
 | **Characters** | `save_character`, `get_character`, `list_characters` |
 | **Locations** | `save_location`, `get_location`, `list_locations` |
 | **Prompts** | `save_prompt`, `get_prompt`, `list_prompts` |
+| **Voice** | `resolve_chapter_scenes`, `voice_stats`, `compare_voice_stats`, `compute_voice_baseline`, `handoff_draft`, `compute_rewrite_diff`, `get_rewrite_edits`, `save_edit_labels`, `count_in_corpus`, `get_voice_baseline_sources`, `get_voice`, `save_voice`, `save_voice_exemplar`, `list_voice_exemplars`, `get_voice_exemplar` |
 | **Extraction** | `extract_bible_from_chapters` |
+
+MCP prompts: `voice-bootstrap` (optional `corpus` argument), `voice-learner` (optional `chapter` argument). See [docs/REFERENCE.md](docs/REFERENCE.md).
 
 ## Development
 
 ```bash
-pip install ".[dev]"
-pytest
+uv run --extra dev pytest
+# or: pip install ".[dev]" && pytest
 ```
+
+Roadmap: [TODOS.md](TODOS.md).

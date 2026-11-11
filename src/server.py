@@ -4,11 +4,17 @@ Entry point for the Model Context Protocol server.
 """
 import os
 import sys
+import json
+import datetime
 import logging
 import argparse
 from typing import Optional
 from mcp.server.fastmcp import FastMCP
 from scrivener_assistant import ScrivenerProject
+from scrivener_assistant import voice_stats as _voice_stats
+from scrivener_assistant import rewrite_diff as _rewrite_diff
+from scrivener_assistant.agent_prompts import load_agent_prompt
+from scrivener_assistant.voice_manager import EDIT_CATEGORIES, edit_id as _edit_id, normalize_text as _normalize_text
 
 # Initialize FastMCP Server
 mcp = FastMCP("Scrivener assistant")
@@ -759,6 +765,583 @@ def get_scene_registry(uuid: str = "") -> str:
     if registry is None:
         return "Scene registry not found. Run rebuild_scene_registry to create it."
     return json.dumps(registry, indent=2)
+
+
+# --- Voice Tools ---
+
+def _voice_text(text: str, uuids: list) -> str:
+    """Return `text` if given, else the concatenation of the documents `uuids`."""
+    if text:
+        return text
+    return "\n".join(current_project.read_document(u) for u in (uuids or []))
+
+
+@mcp.tool()
+def resolve_chapter_scenes(chapter: str) -> str:
+    """
+    Resolves a chapter to its Scrivener sections (scenes), in binder order.
+
+    Args:
+        chapter: 1-based chapter number ("3") or chapter title (case/accent-insensitive;
+                 exact match first, then unique prefix). Chapters are the top-level
+                 children of the DraftFolder.
+
+    Returns:
+        JSON {number, title, scenes: [{uuid, title, word_count}]}.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        result = current_project.scene_registry.resolve_chapter(chapter, current_project)
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    except ValueError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Error resolving chapter: {e}"
+
+
+@mcp.tool()
+def voice_stats(text: str = "", uuids: list[str] = []) -> str:
+    """
+    Computes deterministic style metrics (sentence length, dialogue share, per-1000 frequencies,
+    opening variety, lexical density, tense mix) for French fiction.
+
+    Args:
+        text: Text to analyse. If empty, `uuids` are used.
+        uuids: Scrivener document UUIDs, concatenated in the given order.
+
+    Returns:
+        JSON of metrics.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        content = _voice_text(text, uuids)
+        if not content.strip():
+            return "Error: provide `text` or `uuids` pointing to non-empty documents."
+        return json.dumps(_voice_stats.compute_voice_stats(content), indent=2, ensure_ascii=False)
+    except Exception as e:
+        return f"Error computing voice stats: {e}"
+
+
+@mcp.tool()
+def compare_voice_stats(text: str = "", uuids: list[str] = []) -> str:
+    """
+    Compares the style metrics of a text with the saved author baseline (voice/baseline.json).
+
+    Args:
+        text: Text to analyse. If empty, `uuids` are used.
+        uuids: Scrivener document UUIDs, concatenated in the given order.
+
+    Returns:
+        JSON {out_of_tolerance: [...], metrics: {name: {value, baseline, tolerance, within}}}.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        baseline = current_project.voice_manager.get_baseline()
+        if baseline is None:
+            return "No voice baseline found. Run voice-bootstrap (compute_voice_baseline) first."
+        content = _voice_text(text, uuids)
+        if not content.strip():
+            return "Error: provide `text` or `uuids` pointing to non-empty documents."
+        comparison = _voice_stats.compare_voice_stats(_voice_stats.compute_voice_stats(content), baseline)
+        result = {
+            "out_of_tolerance": [k for k, v in comparison.items() if not v["within"]],
+            "metrics": comparison,
+        }
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    except Exception as e:
+        return f"Error comparing voice stats: {e}"
+
+
+@mcp.tool()
+def compute_voice_baseline(uuids: list[str]) -> str:
+    """
+    Builds the author voice baseline from human-written documents (one text per UUID),
+    saves it to voice/baseline.json and returns a short summary.
+
+    Args:
+        uuids: Scrivener document UUIDs of the corpus (scenes/sections written by the author).
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        texts = [current_project.read_document(u) for u in uuids]
+        texts = [t for t in texts if t.strip()]
+        if not texts:
+            return "Error: no non-empty document among the given UUIDs."
+        baseline = _voice_stats.build_baseline(texts)
+        baseline["source_uuids"] = list(uuids)
+        path = current_project.voice_manager.save_baseline(baseline)
+        agg = baseline["aggregate"]
+        summary = {
+            "saved_to": str(path),
+            "sources": baseline["sources"],
+            "word_count": agg["word_count"],
+            "key_metrics": {
+                "sentence_length_mean": agg["sentence_length"]["overall"]["mean"],
+                "dialogue_share": agg["dialogue_share"],
+                "per_1000_words": agg["per_1000_words"],
+                "opening_top5_share": agg["opening_variety"]["top5_share"],
+                "lexical_density": agg["lexical_density"],
+                "tense_shares": agg["tense_mix"]["shares"],
+            },
+        }
+        return json.dumps(summary, indent=2, ensure_ascii=False)
+    except Exception as e:
+        return f"Error computing voice baseline: {e}"
+
+
+def _chapter_scrivener_text(resolved: dict, uuids: Optional[list] = None) -> str:
+    """Current Scrivener text of a resolved chapter: scenes in binder order joined with newlines.
+    If `uuids` is given, only those scenes are included (still in binder order)."""
+    scenes = [s for s in resolved["scenes"] if uuids is None or s["uuid"] in uuids]
+    return "\n".join(current_project.read_document(s["uuid"]) for s in scenes)
+
+
+@mcp.tool()
+def handoff_draft(chapter: str, source: str = "draft", overwrite: bool = False) -> str:
+    """
+    Freezes the text handed to the author into drafts/chapter-NN/draft.sent.md, the baseline
+    of compute_rewrite_diff, and records drafts/chapter-NN/handoff.json.
+
+    Args:
+        chapter: 1-based chapter number or chapter title (see resolve_chapter_scenes).
+        source: "draft" (default) copies drafts/chapter-NN/draft.md (an AI draft). "scrivener"
+            freezes the CURRENT Scrivener text of the chapter (legacy chapters mixing author and
+            AI text that were never frozen; the resulting diff is weak evidence).
+        overwrite: True to replace an existing draft.sent.md (it is the diff baseline).
+
+    Returns:
+        JSON summary: chapter, source, kind, words, scenes count and saved paths.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        if source not in ("draft", "scrivener"):
+            return f"Error: invalid source '{source}'. Use 'draft' or 'scrivener'."
+        resolved = current_project.scene_registry.resolve_chapter(chapter, current_project)
+        number = resolved["number"]
+        dm = current_project.draft_manager
+        if dm.get_file(number, "draft.sent") is not None and not overwrite:
+            return (f"Error: draft.sent.md already exists for chapter {number:02d}. It is the baseline "
+                    "of compute_rewrite_diff; call again with overwrite=True to replace it.")
+        if source == "draft":
+            text = dm.get_file(number, "draft")
+            if text is None or not text.strip():
+                return f"Error: drafts/chapter-{number:02d}/draft.md is missing or empty."
+            kind = "ai-draft"
+            frozen = None
+        else:
+            # Only freeze scenes that already have text: scenes written later must not show up
+            # as edits in compute_rewrite_diff.
+            frozen = [s["uuid"] for s in resolved["scenes"]
+                      if current_project.read_document(s["uuid"]).strip()]
+            text = _chapter_scrivener_text(resolved, frozen)
+            if not text.strip():
+                return f"Error: the Scrivener sections of chapter {number:02d} are empty."
+            kind = "legacy-mixed"
+        words = len(text.split())
+        sent_path = dm.save_file(number, "draft.sent", text)
+        handoff_path = dm.save_handoff(number, {
+            "chapter": number,
+            "chapter_title": resolved["title"],
+            "source": source,
+            "kind": kind,
+            "sent_at": datetime.datetime.now().isoformat(timespec="seconds"),
+            "words": words,
+            "scenes": resolved["scenes"],
+            "frozen_scenes": frozen,
+        })
+        summary = {
+            "chapter": number,
+            "chapter_title": resolved["title"],
+            "source": source,
+            "kind": kind,
+            "words": words,
+            "scenes": len(resolved["scenes"]),
+            "frozen_scenes": len(frozen) if frozen is not None else None,
+            "saved_to": [str(sent_path), str(handoff_path)],
+        }
+        return json.dumps(summary, indent=2, ensure_ascii=False)
+    except ValueError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Error handing off draft: {e}"
+
+
+@mcp.tool()
+def compute_rewrite_diff(chapter: str) -> str:
+    """
+    Measures how much the author changed an AI draft: compares drafts/chapter-NN/draft.sent.md
+    (or draft.md if absent) with the current Scrivener text of the chapter, and saves the result
+    to voice/edits/chapter-NN.json.
+
+    Args:
+        chapter: 1-based chapter number or chapter title (see resolve_chapter_scenes).
+
+    Returns:
+        JSON summary: edit_rate, similarity, sentence counts, fill-ins and the first 10 edit pairs.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        resolved = current_project.scene_registry.resolve_chapter(chapter, current_project)
+        number = resolved["number"]
+        warning = None
+        baseline_file = "draft.sent.md"
+        draft = current_project.draft_manager.get_file(number, "draft.sent")
+        if draft is None:
+            draft = current_project.draft_manager.get_file(number, "draft")
+            baseline_file = "draft.md"
+            warning = ("draft.sent.md not found: using draft.md, which may have been revised "
+                       "after it was handed to the author.")
+        if draft is None:
+            return f"Error: no draft found for chapter {number:02d} (neither draft.sent.md nor draft.md)."
+        handoff = current_project.draft_manager.get_handoff(number)
+        frozen = handoff.get("frozen_scenes") if handoff else None
+        final = _chapter_scrivener_text(resolved, frozen)
+        if not final.strip():
+            return f"Error: the Scrivener sections of chapter {number:02d} are empty."
+        diff = _rewrite_diff.compute_rewrite_diff(draft, final)
+        data = {
+            "chapter": number,
+            "chapter_title": resolved["title"],
+            "baseline_file": baseline_file,
+            "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
+            "scenes": [s["uuid"] for s in resolved["scenes"]],
+            **diff,
+        }
+        if handoff:
+            data["handoff_kind"] = handoff.get("kind")
+            data["sent_at"] = handoff.get("sent_at")
+        path = current_project.voice_manager.save_edits(number, data)
+        summary = {
+            "chapter": number,
+            "chapter_title": resolved["title"],
+            "baseline_file": baseline_file,
+            "saved_to": str(path),
+            "edit_rate": diff["edit_rate"],
+            "similarity": diff["similarity"],
+            "draft_words": diff["draft_words"],
+            "final_words": diff["final_words"],
+            "sentences": diff["sentences"],
+            "fill_ins": diff["fill_ins"],
+            "pairs_total": len(diff["pairs"]),
+            "pairs": diff["pairs"][:10],
+        }
+        if handoff:
+            summary["handoff_kind"] = handoff.get("kind")
+            summary["sent_at"] = handoff.get("sent_at")
+            if handoff.get("kind") == "legacy-mixed":
+                summary["note"] = ("The baseline was frozen from Scrivener text that mixes author and AI "
+                                   "writing (legacy-mixed): these edits are weak evidence. Use them as "
+                                   "hypotheses only, never for promotion on their own.")
+        if warning:
+            summary["warning"] = warning
+        return json.dumps(summary, indent=2, ensure_ascii=False)
+    except ValueError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Error computing rewrite diff: {e}"
+
+
+def _edits_for(chapter: str):
+    """Resolve a chapter and load its saved edits. Returns (number, data) or raises ValueError."""
+    resolved = current_project.scene_registry.resolve_chapter(chapter, current_project)
+    number = resolved["number"]
+    data = current_project.voice_manager.get_edits(number)
+    if data is None:
+        raise ValueError(f"no edits saved for chapter {number:02d}: run compute_rewrite_diff first.")
+    return number, data
+
+
+@mcp.tool()
+def get_rewrite_edits(chapter: str, offset: int = 0, limit: int = 40, only_unlabeled: bool = False) -> str:
+    """
+    Reads the edit pairs saved by compute_rewrite_diff, with their labels (if any).
+
+    Args:
+        chapter: 1-based chapter number or chapter title.
+        offset: Index of the first pair to return (after the only_unlabeled filter).
+        limit: Maximum number of pairs to return.
+        only_unlabeled: True to return only pairs that have no label yet.
+
+    Returns:
+        JSON: chapter, handoff_kind, edit_rate, totals, label counts, unlabeled count and the
+        slice of pairs (index, stable id, op, before, after, changed_words, category, note).
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        number, data = _edits_for(chapter)
+        labels = current_project.voice_manager.get_edit_labels(number)
+        pairs = []
+        for index, pair in enumerate(data.get("pairs", [])):
+            pid = _edit_id(pair)
+            label = labels.get(pid)
+            pairs.append({
+                "index": index,
+                "id": pid,
+                "op": pair.get("op"),
+                "before": pair.get("before"),
+                "after": pair.get("after"),
+                "changed_words": pair.get("changed_words"),
+                "category": label["category"] if label else None,
+                "note": label.get("note") if label else None,
+            })
+        counts = {c: 0 for c in EDIT_CATEGORIES}
+        for p in pairs:
+            if p["category"] in counts:
+                counts[p["category"]] += 1
+        unlabeled = sum(1 for p in pairs if p["category"] is None)
+        selected = [p for p in pairs if p["category"] is None] if only_unlabeled else pairs
+        offset = max(offset, 0)
+        result = {
+            "chapter": number,
+            "handoff_kind": data.get("handoff_kind"),
+            "edit_rate": data.get("edit_rate"),
+            "pairs_total": len(pairs),
+            "label_counts": counts,
+            "unlabeled": unlabeled,
+            "offset": offset,
+            "returned": len(selected[offset:offset + max(limit, 0)]),
+            "pairs": selected[offset:offset + max(limit, 0)],
+        }
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    except ValueError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Error reading rewrite edits: {e}"
+
+
+@mcp.tool()
+def save_edit_labels(chapter: str, labels: list[dict]) -> str:
+    """
+    Labels edit pairs of a chapter. Labels live in voice/edits/chapter-NN.labels.json and survive
+    a re-run of compute_rewrite_diff (pairs are matched by their stable id).
+
+    Args:
+        chapter: 1-based chapter number or chapter title.
+        labels: List of {id, category, note?}. category is one of voice, structure, tic, plot,
+            fidelity. The whole call is rejected if any id is unknown or any category invalid.
+
+    Returns:
+        JSON: labels saved, counts per category and remaining unlabeled pairs.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        number, data = _edits_for(chapter)
+        known = {_edit_id(p) for p in data.get("pairs", [])}
+        bad = []
+        for i, item in enumerate(labels):
+            if not isinstance(item, dict) or "id" not in item:
+                bad.append({"item": i, "problem": "missing id"})
+            elif item["id"] not in known:
+                bad.append({"item": i, "id": item["id"], "problem": "unknown id for this chapter's current edits"})
+            elif item.get("category") not in EDIT_CATEGORIES:
+                bad.append({"item": i, "id": item["id"], "problem": f"invalid category {item.get('category')!r}"})
+        if bad:
+            return ("Error: nothing saved. Bad items: " + json.dumps(bad, ensure_ascii=False)
+                    + f". Valid categories: {list(EDIT_CATEGORIES)}.")
+        store = current_project.voice_manager.save_edit_labels(number, labels)
+        counts = {c: 0 for c in EDIT_CATEGORIES}
+        for pid in known:
+            if pid in store:
+                counts[store[pid]["category"]] += 1
+        result = {
+            "chapter": number,
+            "saved": len(labels),
+            "label_counts": counts,
+            "unlabeled": len(data.get("pairs", [])) - sum(1 for p in data.get("pairs", []) if _edit_id(p) in store),
+        }
+        return json.dumps(result, indent=2, ensure_ascii=False)
+    except ValueError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Error saving edit labels: {e}"
+
+
+@mcp.tool()
+def get_voice_baseline_sources() -> str:
+    """
+    Returns the source_uuids (and the sources count) stored in voice/baseline.json, i.e. the
+    human-written corpus the baseline was built from.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        baseline = current_project.voice_manager.get_baseline()
+        if baseline is None:
+            return "Error: no voice baseline found. Run voice-bootstrap (compute_voice_baseline) first."
+        uuids = baseline.get("source_uuids")
+        return json.dumps({
+            "sources": baseline.get("sources"),
+            "source_uuids": uuids,
+            "note": None if uuids else "This baseline has no source_uuids: re-run compute_voice_baseline with the full list of UUIDs.",
+        }, indent=2, ensure_ascii=False)
+    except Exception as e:
+        return f"Error reading baseline sources: {e}"
+
+
+@mcp.tool()
+def count_in_corpus(phrase: str) -> str:
+    """
+    Counts a phrase in the human corpus (the source_uuids of voice/baseline.json). Case-insensitive;
+    nbsp, typographic apostrophes and whitespace runs are normalized. Used to check that a banned
+    phrase has zero occurrences in the author's own writing.
+
+    Args:
+        phrase: The word or phrase to count.
+
+    Returns:
+        JSON {phrase, total, by_scene: [{uuid, title, count}]} (non-zero scenes only).
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        needle = _normalize_text(phrase)
+        if not needle:
+            return "Error: empty phrase."
+        baseline = current_project.voice_manager.get_baseline()
+        if baseline is None:
+            return "Error: no voice baseline found. Run voice-bootstrap (compute_voice_baseline) first."
+        uuids = baseline.get("source_uuids")
+        if not uuids:
+            return ("Error: baseline.json has no source_uuids. Re-run compute_voice_baseline with the "
+                    "UUIDs of the human corpus (or add source_uuids to baseline.json).")
+        by_scene, total = [], 0
+        for uuid in uuids:
+            count = _normalize_text(current_project.read_document(uuid)).count(needle)
+            if count:
+                scene = current_project.scene_registry.get_scene(uuid) or {}
+                by_scene.append({"uuid": uuid, "title": scene.get("title"), "count": count})
+                total += count
+        return json.dumps({"phrase": phrase, "total": total, "by_scene": by_scene}, indent=2, ensure_ascii=False)
+    except Exception as e:
+        return f"Error counting in corpus: {e}"
+
+
+@mcp.tool()
+def get_voice(name: str) -> str:
+    """
+    Reads a voice file.
+    Args:
+        name: One of guide, hypotheses, ledger.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        content = current_project.voice_manager.get_file(name)
+    except ValueError as e:
+        return f"Error: {e}"
+    if content is None:
+        return f"No voice file '{name}' found."
+    return content
+
+
+@mcp.tool()
+def save_voice(name: str, content: str) -> str:
+    """
+    Saves a voice file.
+    Args:
+        name: One of guide, hypotheses, ledger.
+        content: Full markdown content.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        path = current_project.voice_manager.save_file(name, content)
+        return f"Saved voice file '{name}' to {path}"
+    except ValueError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Error saving voice file: {e}"
+
+
+@mcp.tool()
+def save_voice_exemplar(slug: str, content: str) -> str:
+    """
+    Saves a short passage written by the author as a voice exemplar.
+    Args:
+        slug: Identifier, lowercase letters, digits and hyphens only (e.g. "dialogue-01").
+        content: The passage, with a header line giving its source.
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        path = current_project.voice_manager.save_exemplar(slug, content)
+        return f"Saved voice exemplar '{slug}' to {path}"
+    except ValueError as e:
+        return f"Error: {e}"
+    except Exception as e:
+        return f"Error saving voice exemplar: {e}"
+
+
+@mcp.tool()
+def list_voice_exemplars() -> str:
+    """Lists the saved voice exemplar slugs."""
+    if not current_project:
+        return NO_PROJECT_MSG
+    slugs = current_project.voice_manager.list_exemplars()
+    if not slugs:
+        return "No voice exemplars found."
+    return "Voice exemplars:\n" + "\n".join(f"- {s}" for s in slugs)
+
+
+@mcp.tool()
+def get_voice_exemplar(slug: str) -> str:
+    """
+    Reads a voice exemplar.
+    Args:
+        slug: Exemplar identifier (see list_voice_exemplars).
+    """
+    if not current_project:
+        return NO_PROJECT_MSG
+    try:
+        content = current_project.voice_manager.get_exemplar(slug)
+    except ValueError as e:
+        return f"Error: {e}"
+    if content is None:
+        return f"No voice exemplar '{slug}' found."
+    return content
+
+
+# --- Prompts ---
+
+@mcp.prompt(
+    name="voice-bootstrap",
+    description=(
+        "One-time author-voice bootstrap: confirms the corpus, computes the numeric "
+        "baseline, writes voice/guide.md, exemplars, hypotheses.md and ledger.md."
+    ),
+)
+def voice_bootstrap_prompt(corpus: str = "") -> str:
+    """Instructions for the author-voice bootstrap workflow (no project needed to render)."""
+    text = load_agent_prompt("voice_bootstrap")
+    if corpus.strip():
+        text += (
+            "\n\nCorpus précisé par l'auteur (il remplace le corpus par défaut de "
+            f"l'étape 1) : {corpus.strip()}\n"
+        )
+    return text
+
+
+@mcp.prompt(
+    name="voice-learner",
+    description=(
+        "Learning loop after retouching a chapter: diff, classify edits, update rule hypotheses, "
+        "propose promotions/exemplars/baseline growth (author validates), log in ledger.md."
+    ),
+)
+def voice_learner_prompt(chapter: str = "") -> str:
+    """Instructions for the voice-learner workflow (no project needed to render)."""
+    text = load_agent_prompt("voice_learner")
+    if chapter.strip():
+        text += f"\n\nChapitre indiqué par l'auteur (étape 1) : {chapter.strip()}\n"
+    return text
 
 
 def main():

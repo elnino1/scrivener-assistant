@@ -13,6 +13,7 @@ from scrivener_assistant.world_manager import WorldManager
 from scrivener_assistant.state_manager import StateManager
 from scrivener_assistant.draft_manager import DraftManager
 from scrivener_assistant.scene_registry_manager import SceneRegistryManager
+from scrivener_assistant.voice_manager import VoiceManager
 from scrivener_assistant.config import ProjectConfig
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,7 @@ class ScrivenerProject:
         self.state_manager = StateManager(self.path, self.config)
         self.draft_manager = DraftManager(self.path, self.config)
         self.scene_registry = SceneRegistryManager(self.path, self.config)
+        self.voice_manager = VoiceManager(self.path, self.config)
 
         # Migrate characters/locations to world/ if still at old paths
         from scrivener_assistant.migration_tool import migrate_characters_locations

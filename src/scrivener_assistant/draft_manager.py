@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Optional
 import logging
@@ -5,7 +6,7 @@ from scrivener_assistant.config import ProjectConfig
 
 logger = logging.getLogger(__name__)
 
-DRAFT_FILES = {"brainstorm", "beats", "draft"}
+DRAFT_FILES = {"brainstorm", "beats", "draft", "draft.sent"}
 
 
 class DraftManager:
@@ -32,6 +33,20 @@ class DraftManager:
         if not path.exists():
             return None
         return path.read_text(encoding="utf-8")
+
+    def save_handoff(self, chapter: int, data: dict) -> Path:
+        chapter_dir = self._chapter_dir(chapter)
+        chapter_dir.mkdir(parents=True, exist_ok=True)
+        path = chapter_dir / "handoff.json"
+        path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        logger.info(f"Saved handoff for chapter {chapter:02d} at {path}")
+        return path
+
+    def get_handoff(self, chapter: int) -> Optional[dict]:
+        path = self._chapter_dir(chapter) / "handoff.json"
+        if not path.exists():
+            return None
+        return json.loads(path.read_text(encoding="utf-8"))
 
     def list_chapters(self) -> list:
         if not self.base_dir.exists():

@@ -25,3 +25,256 @@ def test_set_project_path_valid():
 def test_set_project_path_invalid():
     result = set_project_path("/invalid/path.scriv")
     assert "Error loading" in result
+
+
+# --- Voice tools ---
+
+def test_voice_tools_without_project():
+    import server
+    saved = server.current_project
+    server.current_project = None
+    try:
+        assert "No project loaded" in server.voice_stats(text="Il partit.")
+        assert "No project loaded" in server.compute_rewrite_diff("1")
+        assert "No project loaded" in server.get_voice("guide")
+    finally:
+        server.current_project = saved
+
+
+def test_voice_tools_roundtrip(tmp_path):
+    import json
+    import shutil
+    import server
+    dest = tmp_path / "temp.scriv"
+    shutil.copytree(VALID_PROJECT, dest)
+    set_project_path(str(dest))
+
+    assert "Error" in server.save_voice("style", "x")
+    assert "Saved" in server.save_voice("guide", "# Guide")
+    assert server.get_voice("guide") == "# Guide"
+    assert "Error" in server.save_voice_exemplar("Bad Slug", "x")
+    assert "Saved" in server.save_voice_exemplar("dialogue-01", "text")
+    assert "dialogue-01" in server.list_voice_exemplars()
+    assert server.get_voice_exemplar("dialogue-01") == "text"
+
+    stats = json.loads(server.voice_stats(text="Il marchait. Elle partit."))
+    assert stats["sentence_count"] == 2
+
+    assert "No voice baseline" in server.compare_voice_stats(text="Il marchait.")
+    assert "Error" in server.compute_voice_baseline([])
+
+    chapter = json.loads(server.resolve_chapter_scenes("1"))
+    assert chapter["number"] == 1 and chapter["scenes"]
+    uuids = [s["uuid"] for s in chapter["scenes"]]
+    assert "Error" in server.resolve_chapter_scenes("zzz-unknown")
+
+    # no draft yet
+    server.current_project.read_document = lambda uuid: "Il marchait dans la rue. Elle partit."
+    assert "no draft" in server.compute_rewrite_diff("1")
+
+    server.save_draft(1, "Il marchait dans la rue. Elle resta.")
+    result = json.loads(server.compute_rewrite_diff("1"))
+    assert result["baseline_file"] == "draft.md" and "warning" in result
+    assert (dest / ".ai-assistant" / "voice" / "edits" / "chapter-01.json").exists()
+    assert result["edit_rate"] > 0 and result["sentences"]["modified"] == 1
+
+    # baseline from documents, then comparison
+    summary = json.loads(server.compute_voice_baseline(uuids))
+    assert summary["sources"] >= 1
+    comparison = json.loads(server.compare_voice_stats(text="Il marchait dans la rue. Elle partit."))
+    assert "metrics" in comparison and "out_of_tolerance" in comparison
+    result = json.loads(server.compute_rewrite_diff("1"))
+    server.save_draft(1, "x")  # keep draft.md only; draft.sent.md takes precedence once present
+    server.current_project.draft_manager.save_file(1, "draft.sent", "Il marchait dans la rue. Elle partit.")
+    assert json.loads(server.compute_rewrite_diff("1"))["baseline_file"] == "draft.sent.md"
+
+
+def _handoff_project(tmp_path):
+    import shutil
+    import server
+    dest = tmp_path / "temp.scriv"
+    shutil.copytree(VALID_PROJECT, dest)
+    set_project_path(str(dest))
+    server.current_project.read_document = lambda uuid: "Il marchait dans la rue. Elle partit."
+    return dest
+
+
+def test_handoff_draft_source_draft(tmp_path):
+    import json
+    import server
+    dest = _handoff_project(tmp_path)
+    assert "missing or empty" in server.handoff_draft("1")
+    server.save_draft(1, "Il marchait dans la rue. Elle resta.")
+    result = json.loads(server.handoff_draft("1"))
+    assert result["kind"] == "ai-draft" and result["source"] == "draft"
+    assert result["words"] == 7 and result["scenes"] >= 1
+    chapter_dir = dest / ".ai-assistant" / "drafts" / "chapter-01"
+    assert (chapter_dir / "draft.sent.md").read_text(encoding="utf-8") == "Il marchait dans la rue. Elle resta."
+    handoff = json.loads((chapter_dir / "handoff.json").read_text(encoding="utf-8"))
+    assert handoff["kind"] == "ai-draft" and handoff["chapter"] == 1 and handoff["sent_at"]
+    assert handoff["scenes"] and set(handoff["scenes"][0]) == {"uuid", "title", "word_count"}
+
+    diff = json.loads(server.compute_rewrite_diff("1"))
+    assert diff["handoff_kind"] == "ai-draft" and "note" not in diff
+
+
+def test_handoff_draft_overwrite_and_invalid_source(tmp_path):
+    import server
+    _handoff_project(tmp_path)
+    server.save_draft(1, "Premier texte.")
+    assert "Error" in server.handoff_draft("1", source="bogus")
+    assert "kind" in server.handoff_draft("1")
+    err = server.handoff_draft("1")
+    assert err.startswith("Error") and "overwrite=True" in err
+    server.save_draft(1, "Second texte.")
+    assert "kind" in server.handoff_draft("1", overwrite=True)
+    assert server.current_project.draft_manager.get_file(1, "draft.sent") == "Second texte."
+
+
+def test_handoff_draft_scrivener_legacy(tmp_path):
+    import json
+    import server
+    _handoff_project(tmp_path)
+    result = json.loads(server.handoff_draft("1", source="scrivener"))
+    assert result["kind"] == "legacy-mixed"
+    resolved = server.current_project.scene_registry.resolve_chapter("1", server.current_project)
+    expected = server._chapter_scrivener_text(resolved)
+    assert server.current_project.draft_manager.get_file(1, "draft.sent") == expected
+
+    diff = json.loads(server.compute_rewrite_diff("1"))
+    assert diff["baseline_file"] == "draft.sent.md"
+    assert diff["edit_rate"] == 0.0 and diff["pairs_total"] == 0
+    assert diff["handoff_kind"] == "legacy-mixed" and "weak evidence" in diff["note"]
+    saved = json.loads((tmp_path / "temp.scriv" / ".ai-assistant" / "voice" / "edits" / "chapter-01.json").read_text(encoding="utf-8"))
+    assert saved["handoff_kind"] == "legacy-mixed"
+
+
+def test_handoff_draft_scrivener_ignores_scenes_written_later(tmp_path):
+    import json
+    import server
+    _handoff_project(tmp_path)
+    resolved = server.current_project.scene_registry.resolve_chapter("1", server.current_project)
+    uuids = [s["uuid"] for s in resolved["scenes"]]
+    assert len(uuids) >= 2, "fixture chapter 1 needs at least two scenes"
+    texts = {u: "Il marchait dans la rue. Elle partit." for u in uuids}
+    texts[uuids[-1]] = ""  # empty at hand-off time
+    server.current_project.read_document = lambda uuid: texts[uuid]
+    result = json.loads(server.handoff_draft("1", source="scrivener"))
+    assert result["frozen_scenes"] == len(uuids) - 1
+
+    texts[uuids[-1]] = "Une scène entièrement nouvelle, écrite après le gel."
+    diff = json.loads(server.compute_rewrite_diff("1"))
+    assert diff["edit_rate"] == 0.0 and diff["pairs_total"] == 0
+
+
+def test_handoff_draft_scrivener_empty(tmp_path):
+    import server
+    _handoff_project(tmp_path)
+    server.current_project.read_document = lambda uuid: ""
+    assert "empty" in server.handoff_draft("1", source="scrivener")
+
+
+def test_handoff_draft_without_project():
+    import server
+    saved = server.current_project
+    server.current_project = None
+    try:
+        assert "No project loaded" in server.handoff_draft("1")
+    finally:
+        server.current_project = saved
+
+
+# --- voice-learner tools ---
+
+def _edits_project(tmp_path):
+    import server
+    dest = _handoff_project(tmp_path)
+    server.save_draft(1, "Il marchait dans la rue. Elle resta. Un instant plus tard, tout changea.")
+    server.handoff_draft("1")
+    server.current_project.read_document = lambda uuid: "Il marchait dans la rue. Elle partit. Tout changea."
+    return dest
+
+
+def test_get_rewrite_edits_missing(tmp_path):
+    import server
+    _handoff_project(tmp_path)
+    assert "compute_rewrite_diff" in server.get_rewrite_edits("1")
+    assert "compute_rewrite_diff" in server.save_edit_labels("1", [])
+
+
+def test_edit_labels_roundtrip_and_rerun(tmp_path):
+    import json
+    import server
+    _edits_project(tmp_path)
+    server.compute_rewrite_diff("1")
+    out = json.loads(server.get_rewrite_edits("1"))
+    assert out["pairs_total"] >= 1 and out["unlabeled"] == out["pairs_total"]
+    assert out["handoff_kind"] == "ai-draft"
+    pair = out["pairs"][0]
+    assert len(pair["id"]) == 12 and pair["index"] == 0 and pair["category"] is None
+    import hashlib
+    raw = f"{pair['op']}\x1f{pair['before'] or ''}\x1f{pair['after'] or ''}"
+    assert pair["id"] == hashlib.sha1(raw.encode()).hexdigest()[:12]
+
+    saved = json.loads(server.save_edit_labels("1", [{"id": pair["id"], "category": "tic", "note": "n"}]))
+    assert saved["label_counts"]["tic"] == 1 and saved["unlabeled"] == out["pairs_total"] - 1
+
+    server.compute_rewrite_diff("1")  # rerun overwrites the edits file
+    again = json.loads(server.get_rewrite_edits("1"))
+    assert again["pairs"][0]["category"] == "tic" and again["pairs"][0]["note"] == "n"
+    assert again["label_counts"]["tic"] == 1
+
+
+def test_save_edit_labels_validation(tmp_path):
+    import json
+    import server
+    _edits_project(tmp_path)
+    server.compute_rewrite_diff("1")
+    pid = json.loads(server.get_rewrite_edits("1"))["pairs"][0]["id"]
+    err = server.save_edit_labels("1", [{"id": pid, "category": "voice"}, {"id": "nope", "category": "voice"}])
+    assert err.startswith("Error") and "nope" in err
+    err = server.save_edit_labels("1", [{"id": pid, "category": "bogus"}])
+    assert err.startswith("Error") and "bogus" in err
+    # nothing was saved by the rejected calls
+    assert json.loads(server.get_rewrite_edits("1"))["label_counts"]["voice"] == 0
+
+
+def test_get_rewrite_edits_filter_and_offset(tmp_path):
+    import json
+    import server
+    _edits_project(tmp_path)
+    server.compute_rewrite_diff("1")
+    vm = server.current_project.voice_manager
+    data = vm.get_edits(1)
+    data["pairs"] = [{"op": "modify", "before": f"a{i}", "after": f"b{i}", "position": i,
+                      "category": None, "changed_words": 1} for i in range(5)]
+    vm.save_edits(1, data)
+    ids = [p["id"] for p in json.loads(server.get_rewrite_edits("1"))["pairs"]]
+    assert len(set(ids)) == 5
+    server.save_edit_labels("1", [{"id": ids[0], "category": "voice"}, {"id": ids[2], "category": "plot"}])
+    out = json.loads(server.get_rewrite_edits("1", only_unlabeled=True, offset=1, limit=1))
+    assert out["unlabeled"] == 3 and out["returned"] == 1
+    assert out["pairs"][0]["id"] == ids[3] and out["pairs"][0]["index"] == 3
+
+
+def test_count_in_corpus_and_baseline_sources(tmp_path):
+    import json
+    import server
+    _handoff_project(tmp_path)
+    assert "no voice baseline" in server.count_in_corpus("x").lower()
+    assert "no voice baseline" in server.get_voice_baseline_sources().lower()
+    server.current_project.read_document = lambda uuid: "Soudain, l’homme partit. SOUDAIN  rien."
+    uuids = [s["uuid"] for s in json.loads(server.resolve_chapter_scenes("1"))["scenes"]]
+    server.compute_voice_baseline(uuids)
+    baseline = server.current_project.voice_manager.get_baseline()
+    assert baseline["source_uuids"] == uuids
+    sources = json.loads(server.get_voice_baseline_sources())
+    assert sources["source_uuids"] == uuids and sources["sources"] == baseline["sources"]
+    res = json.loads(server.count_in_corpus("soudain"))
+    assert res["total"] == 2 * len(uuids) and res["by_scene"][0]["count"] == 2
+    assert json.loads(server.count_in_corpus("l'homme partit"))["total"] == len(uuids)
+    assert json.loads(server.count_in_corpus("absent"))["total"] == 0
+    # baseline without source_uuids
+    del baseline["source_uuids"]
+    server.current_project.voice_manager.save_baseline(baseline)
+    assert "source_uuids" in server.count_in_corpus("soudain")
